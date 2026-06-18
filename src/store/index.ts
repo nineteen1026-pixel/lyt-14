@@ -7,10 +7,10 @@ import type {
   PestRecord,
   CarePlan,
   CareTodo,
-  CareTaskType,
 } from "@/types";
 import { DEFAULT_CARE_PLANS } from "@/types";
-import { generateId, now, today, getDaysAgo, formatDate } from "@/utils/format";
+import { generateId, now, today, getDaysAgo } from "@/utils/format";
+import { generateCareTodos } from "@/utils/helpers";
 
 const MOCK_PLANTS: Plant[] = [
   {
@@ -163,80 +163,6 @@ const createInitialCarePlans = (): CarePlan[] => {
 };
 
 const MOCK_CARE_PLANS = createInitialCarePlans();
-
-const getLastCareLogDate = (
-  plantId: string,
-  taskType: CareTaskType,
-  careLogs: CareLog[]
-): string | undefined => {
-  const logs = careLogs
-    .filter((l) => l.plantId === plantId && l.type === taskType)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  return logs[0]?.date;
-};
-
-const calculateDueDate = (
-  lastDate: string | undefined,
-  plantedDate: string,
-  intervalDays: number
-): string => {
-  const baseDate = lastDate || plantedDate;
-  const d = new Date(baseDate);
-  d.setDate(d.getDate() + intervalDays);
-  return formatDate(d);
-};
-
-const generateCareTodos = (
-  plants: Plant[],
-  carePlans: CarePlan[],
-  careLogs: CareLog[]
-): CareTodo[] => {
-  const todos: CareTodo[] = [];
-  const todayStr = today();
-
-  const enabledPlans = carePlans.filter((p) => p.enabled);
-
-  plants.forEach((plant) => {
-    const matchingPlans = enabledPlans.filter(
-      (p) => p.category === "all" || p.category === plant.category
-    );
-
-    matchingPlans.forEach((plan) => {
-      const lastDate = getLastCareLogDate(plant.id, plan.taskType, careLogs);
-      const dueDate = calculateDueDate(lastDate, plant.plantedDate, plan.intervalDays);
-      const overdueDays = Math.max(
-        0,
-        Math.floor((new Date(todayStr).getTime() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24))
-      );
-
-      let status: CareTodo["status"] = "pending";
-      if (overdueDays > 0) status = "overdue";
-
-      if (overdueDays >= 0 && dueDate <= todayStr) {
-        todos.push({
-          id: `todo-${plant.id}-${plan.taskType}`,
-          plantId: plant.id,
-          plantName: plant.name,
-          plantAvatar: plant.avatar,
-          taskType: plan.taskType,
-          planId: plan.id,
-          dueDate,
-          lastDoneDate: lastDate,
-          overdueDays,
-          status,
-          defaultAmount: plan.defaultAmount,
-          defaultFertilizerType: plan.defaultFertilizerType,
-        });
-      }
-    });
-  });
-
-  return todos.sort((a, b) => {
-    if (a.status === "overdue" && b.status !== "overdue") return -1;
-    if (a.status !== "overdue" && b.status === "overdue") return 1;
-    return a.dueDate.localeCompare(b.dueDate);
-  });
-};
 
 interface AppState {
   plants: Plant[];

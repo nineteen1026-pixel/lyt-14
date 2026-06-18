@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
 import {
   Leaf,
   Droplets,
@@ -15,6 +16,7 @@ import { useAppStore } from "@/store";
 import { getRelativeTime, today, formatDate } from "@/utils/format";
 import {
   getCareStatsByDate,
+  generateCareTodos,
 } from "@/utils/helpers";
 import {
   CARE_TYPE_LABELS,
@@ -36,20 +38,24 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { useState } from "react";
 
 export function Dashboard() {
   const plants = useAppStore((s) => s.plants);
   const careLogs = useAppStore((s) => s.careLogs);
+  const carePlans = useAppStore((s) => s.carePlans);
   const pestRecords = useAppStore((s) => s.pestRecords);
-  const getCareTodos = useAppStore((s) => s.getCareTodos);
   const completeTodoWithLog = useAppStore((s) => s.completeTodoWithLog);
 
   const [completingId, setCompletingId] = useState<string | null>(null);
 
-  const careTodos = getCareTodos().slice(0, 5);
-  const totalTodoCount = getCareTodos().length;
-  const overdueCount = getCareTodos().filter((t) => t.status === "overdue").length;
+  const allTodos = useMemo(
+    () => generateCareTodos(plants, carePlans, careLogs),
+    [plants, carePlans, careLogs]
+  );
+
+  const careTodos = allTodos.slice(0, 5);
+  const totalTodoCount = allTodos.length;
+  const overdueCount = allTodos.filter((t) => t.status === "overdue").length;
 
   const thisMonthCareLogs = careLogs.filter((l) => {
     const d = new Date(l.date);

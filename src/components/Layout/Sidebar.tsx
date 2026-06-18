@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useMemo } from "react";
 import {
   LayoutDashboard,
   Leaf,
@@ -10,6 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useAppStore } from "@/store";
+import { generateCareTodos } from "@/utils/helpers";
 
 const navItems = [
   { path: "/", label: "仪表盘", icon: LayoutDashboard, emoji: "🌿", badge: "todos" as const },
@@ -24,11 +26,17 @@ const navItems = [
 export function Sidebar() {
   const plants = useAppStore((s) => s.plants);
   const pestRecords = useAppStore((s) => s.pestRecords);
-  const getPendingTodoCount = useAppStore((s) => s.getPendingTodoCount);
-  const getCareTodos = useAppStore((s) => s.getCareTodos);
+  const carePlans = useAppStore((s) => s.carePlans);
+  const careLogs = useAppStore((s) => s.careLogs);
+
   const ongoingPests = pestRecords.filter((p) => p.status === "ongoing").length;
-  const pendingTodoCount = getPendingTodoCount();
-  const todos = getCareTodos();
+
+  const todos = useMemo(
+    () => generateCareTodos(plants, carePlans, careLogs),
+    [plants, carePlans, careLogs]
+  );
+
+  const pendingTodoCount = todos.length;
   const overdueCount = todos.filter((t) => t.status === "overdue").length;
 
   return (
