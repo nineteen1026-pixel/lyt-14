@@ -11,6 +11,8 @@ import { LeafForm } from "@/pages/Leaves/LeafForm";
 import { Pests } from "@/pages/Pests";
 import { PestForm } from "@/pages/Pests/PestForm";
 import { DataCenter } from "@/pages/DataCenter";
+import { CarePlans } from "@/pages/CarePlans";
+import { CarePlanForm } from "@/pages/CarePlans/CarePlanForm";
 
 const router = createBrowserRouter([
   {
@@ -24,6 +26,9 @@ const router = createBrowserRouter([
       { path: "plants/:id/edit", element: <PlantForm /> },
       { path: "care-logs", element: <CareLogs /> },
       { path: "care-logs/new", element: <CareLogForm /> },
+      { path: "care-plans", element: <CarePlans /> },
+      { path: "care-plans/new", element: <CarePlanForm /> },
+      { path: "care-plans/:id/edit", element: <CarePlanForm /> },
       { path: "leaves", element: <Leaves /> },
       { path: "leaves/new", element: <LeafForm /> },
       { path: "pests", element: <Pests /> },

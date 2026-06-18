@@ -46,7 +46,7 @@ export function LeafForm() {
         newImages.push(compressed);
       }
       setImages((prev) => [...prev, ...newImages]);
-    } catch (err) {
+    } catch {
       alert("图片处理失败");
     } finally {
       setUploading(false);

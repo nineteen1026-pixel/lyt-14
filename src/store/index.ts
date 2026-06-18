@@ -5,8 +5,12 @@ import type {
   CareLog,
   LeafRecord,
   PestRecord,
+  CarePlan,
+  CareTodo,
+  CareTaskType,
 } from "@/types";
-import { generateId, now, today, getDaysAgo } from "@/utils/format";
+import { DEFAULT_CARE_PLANS } from "@/types";
+import { generateId, now, today, getDaysAgo, formatDate } from "@/utils/format";
 
 const MOCK_PLANTS: Plant[] = [
   {
@@ -149,11 +153,97 @@ const MOCK_PEST_RECORDS: PestRecord[] = [
   },
 ];
 
+const createInitialCarePlans = (): CarePlan[] => {
+  return DEFAULT_CARE_PLANS.map((plan) => ({
+    ...plan,
+    id: generateId(),
+    createdAt: now(),
+    updatedAt: now(),
+  }));
+};
+
+const MOCK_CARE_PLANS = createInitialCarePlans();
+
+const getLastCareLogDate = (
+  plantId: string,
+  taskType: CareTaskType,
+  careLogs: CareLog[]
+): string | undefined => {
+  const logs = careLogs
+    .filter((l) => l.plantId === plantId && l.type === taskType)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return logs[0]?.date;
+};
+
+const calculateDueDate = (
+  lastDate: string | undefined,
+  plantedDate: string,
+  intervalDays: number
+): string => {
+  const baseDate = lastDate || plantedDate;
+  const d = new Date(baseDate);
+  d.setDate(d.getDate() + intervalDays);
+  return formatDate(d);
+};
+
+const generateCareTodos = (
+  plants: Plant[],
+  carePlans: CarePlan[],
+  careLogs: CareLog[]
+): CareTodo[] => {
+  const todos: CareTodo[] = [];
+  const todayStr = today();
+
+  const enabledPlans = carePlans.filter((p) => p.enabled);
+
+  plants.forEach((plant) => {
+    const matchingPlans = enabledPlans.filter(
+      (p) => p.category === "all" || p.category === plant.category
+    );
+
+    matchingPlans.forEach((plan) => {
+      const lastDate = getLastCareLogDate(plant.id, plan.taskType, careLogs);
+      const dueDate = calculateDueDate(lastDate, plant.plantedDate, plan.intervalDays);
+      const overdueDays = Math.max(
+        0,
+        Math.floor((new Date(todayStr).getTime() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24))
+      );
+
+      let status: CareTodo["status"] = "pending";
+      if (overdueDays > 0) status = "overdue";
+
+      if (overdueDays >= 0 && dueDate <= todayStr) {
+        todos.push({
+          id: `todo-${plant.id}-${plan.taskType}`,
+          plantId: plant.id,
+          plantName: plant.name,
+          plantAvatar: plant.avatar,
+          taskType: plan.taskType,
+          planId: plan.id,
+          dueDate,
+          lastDoneDate: lastDate,
+          overdueDays,
+          status,
+          defaultAmount: plan.defaultAmount,
+          defaultFertilizerType: plan.defaultFertilizerType,
+        });
+      }
+    });
+  });
+
+  return todos.sort((a, b) => {
+    if (a.status === "overdue" && b.status !== "overdue") return -1;
+    if (a.status !== "overdue" && b.status === "overdue") return 1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+};
+
 interface AppState {
   plants: Plant[];
   careLogs: CareLog[];
   leafRecords: LeafRecord[];
   pestRecords: PestRecord[];
+  carePlans: CarePlan[];
 
   addPlant: (
     plant: Omit<Plant, "id" | "createdAt" | "updatedAt">
@@ -181,6 +271,18 @@ interface AppState {
   deletePestRecord: (id: string) => void;
   getPestRecordsByPlant: (plantId: string) => PestRecord[];
 
+  addCarePlan: (plan: Omit<CarePlan, "id" | "createdAt" | "updatedAt">) => void;
+  updateCarePlan: (id: string, data: Partial<CarePlan>) => void;
+  deleteCarePlan: (id: string) => void;
+  toggleCarePlan: (id: string) => void;
+
+  getCareTodos: () => CareTodo[];
+  getPendingTodoCount: () => number;
+  completeTodoWithLog: (
+    todoId: string,
+    overrideData?: Partial<Omit<CareLog, "id" | "createdAt" | "plantId" | "type" | "date">>
+  ) => boolean;
+
   exportData: () => string;
   importData: (json: string) => boolean;
   clearAllData: () => void;
@@ -194,6 +296,7 @@ export const useAppStore = create<AppState>()(
       careLogs: MOCK_CARE_LOGS,
       leafRecords: MOCK_LEAF_RECORDS,
       pestRecords: MOCK_PEST_RECORDS,
+      carePlans: MOCK_CARE_PLANS,
 
       addPlant: (plant) =>
         set((state) => ({
@@ -305,8 +408,75 @@ export const useAppStore = create<AppState>()(
           .pestRecords.filter((p) => p.plantId === plantId)
           .sort((a, b) => b.discoveredDate.localeCompare(a.discoveredDate)),
 
+      addCarePlan: (plan) =>
+        set((state) => ({
+          carePlans: [
+            ...state.carePlans,
+            {
+              ...plan,
+              id: generateId(),
+              createdAt: now(),
+              updatedAt: now(),
+            },
+          ],
+        })),
+
+      updateCarePlan: (id, data) =>
+        set((state) => ({
+          carePlans: state.carePlans.map((p) =>
+            p.id === id ? { ...p, ...data, updatedAt: now() } : p
+          ),
+        })),
+
+      deleteCarePlan: (id) =>
+        set((state) => ({
+          carePlans: state.carePlans.filter((p) => p.id !== id),
+        })),
+
+      toggleCarePlan: (id) =>
+        set((state) => ({
+          carePlans: state.carePlans.map((p) =>
+            p.id === id ? { ...p, enabled: !p.enabled, updatedAt: now() } : p
+          ),
+        })),
+
+      getCareTodos: () => {
+        const { plants, carePlans, careLogs } = get();
+        return generateCareTodos(plants, carePlans, careLogs);
+      },
+
+      getPendingTodoCount: () => {
+        return get().getCareTodos().length;
+      },
+
+      completeTodoWithLog: (todoId, overrideData) => {
+        const todos = get().getCareTodos();
+        const todo = todos.find((t) => t.id === todoId);
+        if (!todo) return false;
+
+        const logData: Omit<CareLog, "id" | "createdAt"> = {
+          plantId: todo.plantId,
+          type: todo.taskType,
+          date: today(),
+          notes: "",
+          ...(todo.taskType === "watering" && todo.defaultAmount !== undefined
+            ? { amount: todo.defaultAmount }
+            : {}),
+          ...(todo.taskType === "fertilizing"
+            ? {
+                amount: todo.defaultAmount,
+                fertilizerType: todo.defaultFertilizerType,
+              }
+            : {}),
+          ...overrideData,
+        };
+
+        get().addCareLog(logData);
+        return true;
+      },
+
       exportData: () => {
-        const { plants, careLogs, leafRecords, pestRecords } = get();
+        const { plants, careLogs, leafRecords, pestRecords, carePlans } = get();
         return JSON.stringify(
           {
             version: "1.0.0",
@@ -315,6 +485,7 @@ export const useAppStore = create<AppState>()(
             careLogs,
             leafRecords,
             pestRecords,
+            carePlans,
           },
           null,
           2
@@ -336,6 +507,7 @@ export const useAppStore = create<AppState>()(
               careLogs: data.careLogs,
               leafRecords: data.leafRecords,
               pestRecords: data.pestRecords,
+              carePlans: data.carePlans || createInitialCarePlans(),
             });
             return true;
           }
@@ -351,6 +523,7 @@ export const useAppStore = create<AppState>()(
           careLogs: [],
           leafRecords: [],
           pestRecords: [],
+          carePlans: [],
         }),
 
       resetWithMockData: () =>
@@ -359,6 +532,7 @@ export const useAppStore = create<AppState>()(
           careLogs: MOCK_CARE_LOGS,
           leafRecords: MOCK_LEAF_RECORDS,
           pestRecords: MOCK_PEST_RECORDS,
+          carePlans: MOCK_CARE_PLANS,
         }),
     }),
     {

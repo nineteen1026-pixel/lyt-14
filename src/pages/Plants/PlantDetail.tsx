@@ -5,7 +5,6 @@ import {
   Trash2,
   Plus,
   Droplets,
-  Sun,
   Leaf,
   Bug,
   CalendarDays,

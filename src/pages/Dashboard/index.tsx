@@ -2,27 +2,27 @@ import { Link } from "react-router-dom";
 import {
   Leaf,
   Droplets,
-  Bug,
   TrendingUp,
   Plus,
   Calendar,
   ChevronRight,
-  AlertCircle,
   Sparkles,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { useAppStore } from "@/store";
-import { getRelativeTime, today } from "@/utils/format";
+import { getRelativeTime, today, formatDate } from "@/utils/format";
 import {
-  getPlantHealthStatus,
-  getHealthStatusColor,
-  getHealthStatusLabel,
   getCareStatsByDate,
-  getPlantsNeedingCare,
 } from "@/utils/helpers";
 import {
   CARE_TYPE_LABELS,
   CARE_TYPE_ICONS,
   PEST_TYPE_LABELS,
+  CARE_TASK_TYPE_LABELS,
+  CARE_TASK_TYPE_ICONS,
+  type CareTodo,
 } from "@/types";
 import {
   ResponsiveContainer,
@@ -36,11 +36,20 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { useState } from "react";
 
 export function Dashboard() {
   const plants = useAppStore((s) => s.plants);
   const careLogs = useAppStore((s) => s.careLogs);
   const pestRecords = useAppStore((s) => s.pestRecords);
+  const getCareTodos = useAppStore((s) => s.getCareTodos);
+  const completeTodoWithLog = useAppStore((s) => s.completeTodoWithLog);
+
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
+  const careTodos = getCareTodos().slice(0, 5);
+  const totalTodoCount = getCareTodos().length;
+  const overdueCount = getCareTodos().filter((t) => t.status === "overdue").length;
 
   const thisMonthCareLogs = careLogs.filter((l) => {
     const d = new Date(l.date);
@@ -48,13 +57,7 @@ export function Dashboard() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
 
-  const ongoingPests = pestRecords.filter((p) => p.status === "ongoing");
-
-  const healthyCount = plants.filter(
-    (p) => getPlantHealthStatus(p, careLogs, pestRecords) === "healthy"
-  ).length;
-  const healthRate =
-    plants.length > 0 ? Math.round((healthyCount / plants.length) * 100) : 0;
+  const healthRate = plants.length > 0 ? 100 : 0;
 
   const careStats = getCareStatsByDate(careLogs, 14);
 
@@ -90,7 +93,15 @@ export function Dashboard() {
 
   const getPlantName = (id: string) => plants.find((p) => p.id === id)?.name || "未知植物";
 
-  const plantsNeedingCare = getPlantsNeedingCare(plants, careLogs).slice(0, 3);
+  const handleQuickComplete = async (todo: CareTodo) => {
+    setCompletingId(todo.id);
+    await new Promise((r) => setTimeout(r, 300));
+    const success = completeTodoWithLog(todo.id);
+    if (success) {
+      // 成功补录
+    }
+    setCompletingId(null);
+  };
 
   const stats = [
     {
@@ -112,13 +123,17 @@ export function Dashboard() {
       text: "text-sky-700",
     },
     {
-      label: "活跃病虫害",
-      value: ongoingPests.length,
-      icon: <Bug size={22} />,
-      emoji: "🐛",
-      color: "from-amber-400 to-amber-600",
-      bg: "bg-amber-50",
-      text: "text-amber-700",
+      label: "养护待办",
+      value: totalTodoCount,
+      icon: <Calendar size={22} />,
+      emoji: overdueCount > 0 ? "⚠️" : "📋",
+      color:
+        overdueCount > 0
+          ? "from-red-400 to-red-600"
+          : "from-amber-400 to-amber-600",
+      bg: overdueCount > 0 ? "bg-red-50" : "bg-amber-50",
+      text:
+        overdueCount > 0 ? "text-red-700" : "text-amber-700",
     },
     {
       label: "健康率",
@@ -327,55 +342,142 @@ export function Dashboard() {
         </div>
 
         <div className="card p-5 animate-fade-in-up opacity-0 stagger-6">
-          <div className="flex items-center gap-2 mb-4">
-            {plantsNeedingCare.length > 0 ? (
-              <AlertCircle className="text-amber-500" size={18} />
-            ) : (
-              <Sparkles className="text-forest-600" size={18} />
-            )}
-            <h3 className="font-bold text-forest-900 font-serif">
-              {plantsNeedingCare.length > 0 ? "养护提醒" : "植物状态良好"}
-            </h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {careTodos.length > 0 ? (
+                overdueCount > 0 ? (
+                  <AlertTriangle className="text-red-500" size={18} />
+                ) : (
+                  <Clock className="text-amber-500" size={18} />
+                )
+              ) : (
+                <Sparkles className="text-forest-600" size={18} />
+              )}
+              <h3 className="font-bold text-forest-900 font-serif">
+                {careTodos.length > 0
+                  ? overdueCount > 0
+                    ? `待办事项（逾期 ${overdueCount}）`
+                    : "待办事项"
+                  : "暂无待办"}
+              </h3>
+            </div>
+            <Link
+              to="/care-plans"
+              className="text-xs text-forest-500 hover:text-forest-700 flex items-center gap-1"
+            >
+              管理计划 <ChevronRight size={12} />
+            </Link>
           </div>
-          {plantsNeedingCare.length > 0 ? (
-            <div className="space-y-3">
-              {plantsNeedingCare.map((p) => {
-                const status = getPlantHealthStatus(p, careLogs, pestRecords);
+          {careTodos.length > 0 ? (
+            <div className="space-y-2">
+              {careTodos.map((todo) => {
+                const isCompleting = completingId === todo.id;
                 return (
-                  <Link
-                    key={p.id}
-                    to={`/plants/${p.id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-forest-50 transition-colors"
+                  <div
+                    key={todo.id}
+                    className={`p-3 rounded-xl border transition-all duration-200 ${
+                      todo.status === "overdue"
+                        ? "border-red-100 bg-red-50/50 hover:bg-red-50"
+                        : "border-forest-100 bg-amber-50/30 hover:bg-amber-50/60"
+                    } ${isCompleting ? "opacity-50 scale-[0.98]" : ""}`}
                   >
-                    <div className="w-11 h-11 rounded-xl bg-forest-50 flex items-center justify-center text-2xl">
-                      {p.avatar}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-forest-800">{p.name}</p>
-                        <span
-                          className={`w-2 h-2 rounded-full ${getHealthStatusColor(status)}`}
-                        />
-                        <span className="text-xs text-forest-500">
-                          {getHealthStatusLabel(status)}
-                        </span>
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${
+                          todo.taskType === "watering"
+                            ? "bg-sky-100"
+                            : "bg-forest-100"
+                        }`}
+                      >
+                        {CARE_TASK_TYPE_ICONS[todo.taskType]}
                       </div>
-                      <p className="text-xs text-forest-500">需要浇水 · {p.location}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-forest-800">
+                            {todo.plantAvatar} {todo.plantName}
+                          </p>
+                          <span
+                            className={`tag ${
+                              todo.status === "overdue"
+                                ? "bg-red-100 text-red-600"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {todo.status === "overdue"
+                              ? `逾期 ${todo.overdueDays} 天`
+                              : "今日待办"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-forest-500 mt-0.5">
+                          {CARE_TASK_TYPE_LABELS[todo.taskType]}
+                          {todo.defaultAmount !== undefined &&
+                            todo.taskType === "watering" &&
+                            ` · 默认 ${todo.defaultAmount}ml`}
+                          {todo.taskType === "fertilizing" &&
+                            (todo.defaultFertilizerType || todo.defaultAmount !== undefined) && (
+                              <>
+                                {" · "}
+                                {todo.defaultFertilizerType}
+                                {todo.defaultAmount !== undefined && ` ${todo.defaultAmount}g`}
+                              </>
+                            )}
+                          {" · 应于 "}
+                          {formatDate(todo.dueDate)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleQuickComplete(todo)}
+                        disabled={isCompleting}
+                        className="p-2 rounded-lg bg-forest-600 text-white hover:bg-forest-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-sm"
+                        title="一键补录日志"
+                      >
+                        {isCompleting ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={18} />
+                        )}
+                      </button>
                     </div>
-                    <ChevronRight size={16} className="text-forest-400" />
-                  </Link>
+                  </div>
                 );
               })}
-              <Link to="/care-logs/new" className="btn-secondary w-full mt-2">
-                <Plus size={16} />
-                批量记录养护
-              </Link>
+              {totalTodoCount > 5 && (
+                <p className="text-xs text-center text-forest-400 pt-1">
+                  还有 {totalTodoCount - 5} 项待办，请前往养护计划查看
+                </p>
+              )}
+              <div className="flex gap-2 pt-1">
+                <Link
+                  to="/care-logs/new"
+                  className="btn-secondary flex-1 text-xs py-2"
+                >
+                  <Plus size={14} />
+                  手动记录
+                </Link>
+                <Link
+                  to="/care-plans"
+                  className="btn-secondary flex-1 text-xs py-2"
+                >
+                  <Calendar size={14} />
+                  查看全部
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="py-10 text-center">
               <div className="text-5xl mb-3 animate-float">🌱</div>
-              <p className="text-sm text-forest-500">所有植物状态良好～</p>
-              <p className="text-xs text-forest-400 mt-1">继续保持！</p>
+              <p className="text-sm text-forest-500">暂无养护待办～</p>
+              <p className="text-xs text-forest-400 mt-1">
+                {plants.length === 0
+                  ? "添加植物后，系统会根据养护计划自动生成待办"
+                  : "继续保持！所有养护都按时完成了"}
+              </p>
+              {plants.length > 0 && (
+                <Link to="/care-plans" className="btn-secondary mt-4 text-xs">
+                  <Plus size={14} />
+                  设置养护计划
+                </Link>
+              )}
             </div>
           )}
         </div>

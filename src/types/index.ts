@@ -165,3 +165,55 @@ export const PEST_STATUS_LABELS: Record<PestStatus, string> = {
   ongoing: "处理中",
   resolved: "已解决",
 };
+
+export type CareTaskType = "watering" | "fertilizing";
+
+export interface CarePlan {
+  id: string;
+  category: PlantCategory | "all";
+  taskType: CareTaskType;
+  intervalDays: number;
+  defaultAmount?: number;
+  defaultFertilizerType?: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CareTodo {
+  id: string;
+  plantId: string;
+  plantName: string;
+  plantAvatar: string;
+  taskType: CareTaskType;
+  planId?: string;
+  dueDate: string;
+  lastDoneDate?: string;
+  overdueDays: number;
+  status: "pending" | "done" | "overdue";
+  defaultAmount?: number;
+  defaultFertilizerType?: string;
+}
+
+export const CARE_TASK_TYPE_LABELS: Record<CareTaskType, string> = {
+  watering: "浇水",
+  fertilizing: "施肥",
+};
+
+export const CARE_TASK_TYPE_ICONS: Record<CareTaskType, string> = {
+  watering: "💧",
+  fertilizing: "🌾",
+};
+
+export const DEFAULT_CARE_PLANS: Omit<CarePlan, "id" | "createdAt" | "updatedAt">[] = [
+  { category: "观叶植物", taskType: "watering", intervalDays: 5, defaultAmount: 200, enabled: true },
+  { category: "观叶植物", taskType: "fertilizing", intervalDays: 30, defaultAmount: 5, defaultFertilizerType: "复合肥", enabled: true },
+  { category: "多肉植物", taskType: "watering", intervalDays: 14, defaultAmount: 100, enabled: true },
+  { category: "多肉植物", taskType: "fertilizing", intervalDays: 60, defaultAmount: 3, defaultFertilizerType: "缓释肥", enabled: true },
+  { category: "开花植物", taskType: "watering", intervalDays: 3, defaultAmount: 250, enabled: true },
+  { category: "开花植物", taskType: "fertilizing", intervalDays: 14, defaultAmount: 5, defaultFertilizerType: "磷钾肥", enabled: true },
+  { category: "香草植物", taskType: "watering", intervalDays: 2, defaultAmount: 150, enabled: true },
+  { category: "香草植物", taskType: "fertilizing", intervalDays: 21, defaultAmount: 3, defaultFertilizerType: "液肥", enabled: true },
+  { category: "蔬果植物", taskType: "watering", intervalDays: 2, defaultAmount: 300, enabled: true },
+  { category: "蔬果植物", taskType: "fertilizing", intervalDays: 10, defaultAmount: 8, defaultFertilizerType: "有机肥", enabled: true },
+];
