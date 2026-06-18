@@ -56,6 +56,7 @@ export default {
         "fade-in": "fadeIn 0.4s ease-out forwards",
         "scale-in": "scaleIn 0.3s ease-out forwards",
         "float": "float 3s ease-in-out infinite",
+        "slide-down": "slideDown 0.25s ease-out forwards",
       },
       keyframes: {
         fadeInUp: {
@@ -73,6 +74,10 @@ export default {
         float: {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-6px)" },
+        },
+        slideDown: {
+          "0%": { opacity: "0", maxHeight: "0", transform: "translateY(-4px)" },
+          "100%": { opacity: "1", maxHeight: "500px", transform: "translateY(0)" },
         },
       },
       backgroundImage: {

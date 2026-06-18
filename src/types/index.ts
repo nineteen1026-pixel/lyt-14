@@ -217,3 +217,74 @@ export const DEFAULT_CARE_PLANS: Omit<CarePlan, "id" | "createdAt" | "updatedAt"
   { category: "蔬果植物", taskType: "watering", intervalDays: 2, defaultAmount: 300, enabled: true },
   { category: "蔬果植物", taskType: "fertilizing", intervalDays: 10, defaultAmount: 8, defaultFertilizerType: "有机肥", enabled: true },
 ];
+
+export type TimelineRecordKind = "care" | "leaf" | "pest";
+
+export type TimelineFilterType = "all" | TimelineRecordKind;
+
+export type TimelineTimeRange = "all" | "week" | "month" | "year";
+
+export interface TimelineCareRecord {
+  kind: "care";
+  data: CareLog;
+}
+
+export interface TimelineLeafRecord {
+  kind: "leaf";
+  data: LeafRecord;
+}
+
+export interface TimelinePestRecord {
+  kind: "pest";
+  data: PestRecord;
+}
+
+export type TimelineRecord = TimelineCareRecord | TimelineLeafRecord | TimelinePestRecord;
+
+export interface TimelineGroupedRecord {
+  id: string;
+  kind: TimelineRecordKind;
+  timestamp: number;
+  sortKey: string;
+  record: TimelineRecord;
+}
+
+export const TIMELINE_KIND_LABELS: Record<TimelineRecordKind, string> = {
+  care: "养护",
+  leaf: "叶片",
+  pest: "病虫害",
+};
+
+export const TIMELINE_KIND_COLORS: Record<
+  TimelineRecordKind,
+  { bg: string; border: string; text: string; dot: string; gradient: string }
+> = {
+  care: {
+    bg: "bg-sky-50",
+    border: "border-sky-200",
+    text: "text-sky-700",
+    dot: "bg-sky-500",
+    gradient: "from-sky-400 to-sky-600",
+  },
+  leaf: {
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+    text: "text-emerald-700",
+    dot: "bg-emerald-500",
+    gradient: "from-emerald-400 to-emerald-600",
+  },
+  pest: {
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    text: "text-amber-700",
+    dot: "bg-amber-500",
+    gradient: "from-amber-400 to-amber-600",
+  },
+};
+
+export const TIMELINE_TIME_RANGE_LABELS: Record<TimelineTimeRange, string> = {
+  all: "全部",
+  week: "近一周",
+  month: "近一月",
+  year: "近一年",
+};

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -11,13 +12,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { useAppStore } from "@/store";
-import { formatDate, getRelativeTime } from "@/utils/format";
-import {
-  CARE_TYPE_LABELS,
-  CARE_TYPE_ICONS,
-  LEAF_COLOR_LABELS,
-  PEST_STATUS_LABELS,
-} from "@/types";
+import { formatDate } from "@/utils/format";
 import {
   getPlantHealthStatus,
   getHealthStatusColor,
@@ -32,16 +27,38 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { PlantTimeline } from "@/components/PlantTimeline";
 
 export function PlantDetail() {
   const { id } = useParams<{ id: string }>();
-  const plant = useAppStore((s) => (id ? s.getPlantById(id) : undefined));
-  const careLogs = useAppStore((s) => (id ? s.getCareLogsByPlant(id) : []));
-  const leafRecords = useAppStore((s) => (id ? s.getLeafRecordsByPlant(id) : []));
-  const pestRecords = useAppStore((s) => (id ? s.getPestRecordsByPlant(id) : []));
-  const deletePlant = useAppStore((s) => s.deletePlant);
+  const plants = useAppStore((s) => s.plants);
   const allCareLogs = useAppStore((s) => s.careLogs);
+  const allLeafRecords = useAppStore((s) => s.leafRecords);
   const allPestRecords = useAppStore((s) => s.pestRecords);
+  const deletePlant = useAppStore((s) => s.deletePlant);
+
+  const plant = plants.find((p) => p.id === id);
+  const careLogs = useMemo(
+    () =>
+      allCareLogs
+        .filter((l) => l.plantId === id)
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [allCareLogs, id]
+  );
+  const leafRecords = useMemo(
+    () =>
+      allLeafRecords
+        .filter((l) => l.plantId === id)
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [allLeafRecords, id]
+  );
+  const pestRecords = useMemo(
+    () =>
+      allPestRecords
+        .filter((p) => p.plantId === id)
+        .sort((a, b) => b.discoveredDate.localeCompare(a.discoveredDate)),
+    [allPestRecords, id]
+  );
 
   if (!plant) {
     return (
@@ -81,38 +98,6 @@ export function PlantDetail() {
       window.location.href = "/plants";
     }
   };
-
-  const allRecords = [
-    ...careLogs.map((l) => ({
-      kind: "care" as const,
-      id: l.id,
-      date: l.date,
-      icon: CARE_TYPE_ICONS[l.type],
-      title: CARE_TYPE_LABELS[l.type],
-      desc:
-        l.type === "watering"
-          ? `浇水 ${l.amount || "-"}ml`
-          : l.type === "fertilizing"
-          ? `施肥 ${l.fertilizerType || ""}`
-          : `光照 ${l.lightDuration || "-"}小时`,
-    })),
-    ...leafRecords.map((l) => ({
-      kind: "leaf" as const,
-      id: l.id,
-      date: l.date,
-      icon: "🍃",
-      title: "叶片观察",
-      desc: `${LEAF_COLOR_LABELS[l.colorStatus]}${l.notes ? " · " + l.notes.slice(0, 20) : ""}`,
-    })),
-    ...pestRecords.map((p) => ({
-      kind: "pest" as const,
-      id: p.id,
-      date: p.discoveredDate,
-      icon: p.type === "disease" ? "🦠" : "🐛",
-      title: p.name,
-      desc: `${PEST_STATUS_LABELS[p.status]} · ${p.symptoms.slice(0, 20)}`,
-    })),
-  ].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="space-y-6">
@@ -244,47 +229,12 @@ export function PlantDetail() {
         </div>
       )}
 
-      <div className="card p-5">
-        <h3 className="font-bold text-forest-900 font-serif mb-4">📋 记录时间线</h3>
-        {allRecords.length > 0 ? (
-          <div className="relative pl-6">
-            <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-forest-100" />
-            {allRecords.map((r, i) => (
-              <div
-                key={r.kind + r.id}
-                className={`relative pb-5 ${i === allRecords.length - 1 ? "pb-0" : ""}`}
-              >
-                <div
-                  className={`absolute -left-[18px] top-1 w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white shadow ${
-                    r.kind === "pest"
-                      ? "bg-amber-100"
-                      : r.kind === "leaf"
-                      ? "bg-emerald-100"
-                      : "bg-sky-100"
-                  }`}
-                >
-                  {r.icon}
-                </div>
-                <div className="ml-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-forest-800 text-sm">
-                      {r.title}
-                    </span>
-                    <span className="text-xs text-forest-400">
-                      {getRelativeTime(r.date)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-forest-600 mt-0.5">{r.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="py-10 text-center text-forest-400 text-sm">
-            还没有任何记录，开始记录吧～
-          </div>
-        )}
-      </div>
+      <PlantTimeline
+        plantId={plant.id}
+        careLogs={careLogs}
+        leafRecords={leafRecords}
+        pestRecords={pestRecords}
+      />
     </div>
   );
 }
