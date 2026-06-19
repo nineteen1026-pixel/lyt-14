@@ -11,12 +11,16 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  Bug,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { getRelativeTime, today, formatDate } from "@/utils/format";
 import {
   getCareStatsByDate,
   generateCareTodos,
+  getPestRecurrenceAlerts,
+  getHighRiskRecurrenceCount,
 } from "@/utils/helpers";
 import {
   CARE_TYPE_LABELS,
@@ -24,8 +28,10 @@ import {
   PEST_TYPE_LABELS,
   CARE_TASK_TYPE_LABELS,
   CARE_TASK_TYPE_ICONS,
+  RECURRENCE_RISK_LABELS,
   type CareTodo,
 } from "@/types";
+import { PestRecurrenceAlert } from "@/components/PestRecurrenceAlert";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -47,6 +53,20 @@ export function Dashboard() {
   const completeTodoWithLog = useAppStore((s) => s.completeTodoWithLog);
 
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [showAlertBanner, setShowAlertBanner] = useState(true);
+
+  const recurrenceAlerts = useMemo(
+    () => getPestRecurrenceAlerts(plants, pestRecords),
+    [plants, pestRecords]
+  );
+
+  const highRiskCount = useMemo(
+    () => getHighRiskRecurrenceCount(plants, pestRecords),
+    [plants, pestRecords]
+  );
+
+  const hasAlerts = recurrenceAlerts.length > 0;
+  const topAlerts = recurrenceAlerts.slice(0, 3);
 
   const allTodos = useMemo(
     () => generateCareTodos(plants, carePlans, careLogs),
@@ -142,18 +162,62 @@ export function Dashboard() {
         overdueCount > 0 ? "text-red-700" : "text-amber-700",
     },
     {
-      label: "健康率",
-      value: `${healthRate}%`,
-      icon: <TrendingUp size={22} />,
-      emoji: "✨",
-      color: "from-emerald-400 to-emerald-600",
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
+      label: "病害复发预警",
+      value: highRiskCount,
+      icon: <AlertTriangle size={22} />,
+      emoji: highRiskCount > 0 ? "🚨" : "✅",
+      color:
+        highRiskCount > 0
+          ? "from-red-400 to-red-600"
+          : "from-emerald-400 to-emerald-600",
+      bg: highRiskCount > 0 ? "bg-red-50" : "bg-emerald-50",
+      text: highRiskCount > 0 ? "text-red-700" : "text-emerald-700",
     },
   ];
 
   return (
     <div className="space-y-6">
+      {hasAlerts && showAlertBanner && highRiskCount > 0 && (
+        <div className="relative animate-fade-in-down">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl p-5 shadow-lg shadow-red-200/50">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg font-serif">
+                  ⚠️ 病虫害复发预警
+                </h3>
+                <p className="text-red-100 text-sm mt-1">
+                  检测到 <span className="font-bold text-white">{highRiskCount}</span>{" "}
+                  项高风险复发预警，请及时关注并采取防治措施
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <Link
+                    to="/pests"
+                    className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    查看详情
+                  </Link>
+                  <Link
+                    to="/pests/new"
+                    className="px-4 py-1.5 bg-white text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    记录处理
+                  </Link>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAlertBanner(false)}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between page-header">
         <div>
           <h1 className="page-title">🌿 欢迎回来</h1>
@@ -311,8 +375,44 @@ export function Dashboard() {
         </div>
       </div>
 
+      {hasAlerts && (
+        <div className="animate-fade-in-up opacity-0 stagger-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Bug className="text-red-500" size={18} />
+              <h3 className="font-bold text-forest-900 font-serif">
+                🐛 病虫害复发预警
+              </h3>
+              <span className="tag bg-red-100 text-red-700">
+                {recurrenceAlerts.length} 项
+              </span>
+            </div>
+            <Link
+              to="/pests"
+              className="text-sm text-forest-600 hover:text-forest-800 flex items-center gap-1"
+            >
+              查看全部 <ChevronRight size={14} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {topAlerts.map((alert, i) => (
+              <PestRecurrenceAlert
+                key={alert.id}
+                alert={alert}
+                defaultExpanded={i === 0 && alert.riskLevel === "high"}
+              />
+            ))}
+          </div>
+          {recurrenceAlerts.length > 3 && (
+            <p className="text-xs text-center text-forest-400 mt-2">
+              还有 {recurrenceAlerts.length - 3} 项预警，请前往病虫害管理查看
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="card p-5 animate-fade-in-up opacity-0 stagger-5">
+        <div className="card p-5 animate-fade-in-up opacity-0 stagger-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="text-forest-600" size={18} />
             <h3 className="font-bold text-forest-900 font-serif">最近活动</h3>

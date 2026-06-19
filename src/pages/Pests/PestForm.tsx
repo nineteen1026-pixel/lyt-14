@@ -1,6 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Save, Upload, X, ImagePlus } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Upload,
+  X,
+  ImagePlus,
+  AlertTriangle,
+  Lightbulb,
+  History,
+  RotateCcw,
+} from "lucide-react";
 import { useAppStore } from "@/store";
 import {
   PestType,
@@ -10,13 +20,15 @@ import {
   PEST_TYPE_LABELS,
   PEST_STATUS_LABELS,
 } from "@/types";
-import { today } from "@/utils/format";
+import { today, formatDate } from "@/utils/format";
 import { compressImage } from "@/utils/export";
+import { getPestHistoryByPlantAndName } from "@/utils/helpers";
 
 export function PestForm() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const plants = useAppStore((s) => s.plants);
+  const pestRecords = useAppStore((s) => s.pestRecords);
   const addPestRecord = useAppStore((s) => s.addPestRecord);
 
   const preselectedPlant = searchParams.get("plantId") || (plants[0]?.id ?? "");
@@ -37,6 +49,45 @@ export function PestForm() {
   });
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+
+  const pestHistory = useMemo(() => {
+    if (!form.plantId || !form.name.trim()) return [];
+    return getPestHistoryByPlantAndName(
+      form.plantId,
+      form.name,
+      pestRecords
+    );
+  }, [form.plantId, form.name, pestRecords]);
+
+  const hasHistory = pestHistory.length > 0;
+
+  const recommendedTreatment = useMemo(() => {
+    if (!hasHistory) return "";
+    const resolved = pestHistory.filter(
+      (r) => r.status === "resolved" && r.treatmentMethod && r.treatmentEffect
+    );
+    if (resolved.length === 0) {
+      const withTreatment = pestHistory.filter((r) => r.treatmentMethod);
+      return withTreatment.length > 0 ? withTreatment[0].treatmentMethod : "";
+    }
+    const scored = resolved.map((r) => {
+      let score = 0;
+      const effect = r.treatmentEffect.toLowerCase();
+      if (effect.includes("完全") || effect.includes("痊愈") || effect.includes("全部")) score = 3;
+      else if (effect.includes("明显") || effect.includes("显著") || effect.includes("很好")) score = 2;
+      else if (effect.includes("有效果") || effect.includes("有效") || effect.includes("好转")) score = 1;
+      return { record: r, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0].record.treatmentMethod;
+  }, [pestHistory, hasHistory]);
+
+  const applyRecommendedTreatment = () => {
+    if (recommendedTreatment) {
+      setForm((f) => ({ ...f, treatmentMethod: recommendedTreatment }));
+    }
+  };
 
   useEffect(() => {
     if (!form.plantId && plants[0]) {
@@ -143,6 +194,96 @@ export function PestForm() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
+            {hasHistory && (
+              <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle
+                    size={16}
+                    className="text-amber-600 mt-0.5 flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-amber-800">
+                      ⚠️ 该植物曾发生过「{form.name}」{pestHistory.length}{" "}
+                      次，请注意复发风险
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+                      className="text-xs text-amber-600 hover:text-amber-800 mt-1 underline underline-offset-2"
+                    >
+                      {showHistoryPanel ? "收起历史记录" : "查看历史记录"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {hasHistory && recommendedTreatment && (
+              <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                <div className="flex items-start gap-2">
+                  <Lightbulb
+                    size={16}
+                    className="text-emerald-600 mt-0.5 flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-emerald-800">
+                      💡 推荐历史有效方案
+                    </p>
+                    <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                      {recommendedTreatment}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={applyRecommendedTreatment}
+                      className="mt-2 px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs rounded-lg font-medium transition-colors flex items-center gap-1"
+                    >
+                      <RotateCcw size={12} />
+                      应用此方案
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {hasHistory && showHistoryPanel && (
+              <div className="mt-3 p-3 rounded-xl bg-forest-50 border border-forest-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <History size={14} className="text-forest-600" />
+                  <span className="text-sm font-medium text-forest-800">
+                    历史记录
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {pestHistory.map((record) => (
+                    <div
+                      key={record.id}
+                      className="p-2.5 rounded-lg bg-white border border-forest-100"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-forest-500">
+                          {formatDate(record.discoveredDate)}
+                        </span>
+                        <span
+                          className={`text-xs tag ${
+                            record.status === "resolved"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "bg-amber-50 text-amber-600"
+                          }`}
+                        >
+                          {record.status === "resolved" ? "已解决" : "处理中"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-forest-700 mt-1">
+                        严重程度：{SEVERITY_LABELS[record.severity]}
+                      </p>
+                      {record.treatmentEffect && (
+                        <p className="text-xs text-emerald-600 mt-0.5">
+                          效果：{record.treatmentEffect}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

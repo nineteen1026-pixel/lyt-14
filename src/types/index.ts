@@ -356,3 +356,48 @@ export const ENVIRONMENT_FIELD_UNITS = {
   humidity: "%",
   light: "lux",
 };
+
+export type RecurrenceRiskLevel = "high" | "medium" | "low";
+
+export interface PestRecurrenceAlert {
+  id: string;
+  plantId: string;
+  plantName: string;
+  plantAvatar: string;
+  pestName: string;
+  pestType: PestType;
+  riskLevel: RecurrenceRiskLevel;
+  currentRecord?: PestRecord;
+  historyRecords: PestRecord[];
+  recurrenceCount: number;
+  recommendedTreatment: string;
+  lastOccurrenceDate: string;
+  averageResolutionDays: number;
+}
+
+export const RECURRENCE_RISK_LABELS: Record<RecurrenceRiskLevel, string> = {
+  high: "高风险",
+  medium: "中风险",
+  low: "低风险",
+};
+
+export const RECURRENCE_RISK_COLORS: Record<RecurrenceRiskLevel, { bg: string; text: string; border: string; dot: string }> = {
+  high: {
+    bg: "bg-red-50",
+    text: "text-red-700",
+    border: "border-red-200",
+    dot: "bg-red-500",
+  },
+  medium: {
+    bg: "bg-orange-50",
+    text: "text-orange-700",
+    border: "border-orange-200",
+    dot: "bg-orange-500",
+  },
+  low: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    dot: "bg-amber-500",
+  },
+};

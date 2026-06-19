@@ -10,6 +10,8 @@ import type {
   PlantHealthScore,
   LeafColor,
   LeafCurl,
+  PestRecurrenceAlert,
+  RecurrenceRiskLevel,
 } from "@/types";
 import { getDaysAgo, formatDate, today, daysBetween } from "./format";
 
@@ -435,4 +437,143 @@ export const calculatePlantHealthScore = (
     stars,
     level,
   };
+};
+
+const normalizePestName = (name: string): string => {
+  return name.trim().toLowerCase();
+};
+
+const getEffectiveTreatment = (records: PestRecord[]): string => {
+  const resolved = records.filter(
+    (r) => r.status === "resolved" && r.treatmentMethod && r.treatmentEffect
+  );
+  if (resolved.length === 0) {
+    const withTreatment = records.filter((r) => r.treatmentMethod);
+    return withTreatment.length > 0 ? withTreatment[0].treatmentMethod : "";
+  }
+
+  const scored = resolved.map((r) => {
+    let score = 0;
+    const effect = r.treatmentEffect.toLowerCase();
+    if (effect.includes("完全") || effect.includes("痊愈") || effect.includes("全部")) score = 3;
+    else if (effect.includes("明显") || effect.includes("显著") || effect.includes("很好")) score = 2;
+    else if (effect.includes("有效果") || effect.includes("有效") || effect.includes("好转")) score = 1;
+    return { record: r, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].record.treatmentMethod;
+};
+
+const calculateAverageResolutionDays = (records: PestRecord[]): number => {
+  const resolved = records.filter(
+    (r) => r.status === "resolved" && r.resolvedDate
+  );
+  if (resolved.length === 0) return 0;
+
+  const totalDays = resolved.reduce((sum, r) => {
+    return sum + daysBetween(r.discoveredDate, r.resolvedDate!);
+  }, 0);
+
+  return Math.round(totalDays / resolved.length);
+};
+
+const determineRiskLevel = (
+  recurrenceCount: number,
+  hasOngoing: boolean,
+  daysSinceLast: number
+): RecurrenceRiskLevel => {
+  if (hasOngoing && recurrenceCount > 0) return "high";
+  if (recurrenceCount >= 2 && daysSinceLast <= 30) return "high";
+  if (recurrenceCount >= 2) return "medium";
+  if (recurrenceCount === 1 && daysSinceLast <= 14) return "medium";
+  return "low";
+};
+
+export const getPestRecurrenceAlerts = (
+  plants: Plant[],
+  pestRecords: PestRecord[]
+): PestRecurrenceAlert[] => {
+  const alerts: PestRecurrenceAlert[] = [];
+
+  plants.forEach((plant) => {
+    const plantPests = pestRecords.filter((p) => p.plantId === plant.id);
+    if (plantPests.length === 0) return;
+
+    const pestGroups = new Map<string, PestRecord[]>();
+    plantPests.forEach((pest) => {
+      const key = normalizePestName(pest.name);
+      if (!pestGroups.has(key)) {
+        pestGroups.set(key, []);
+      }
+      pestGroups.get(key)!.push(pest);
+    });
+
+    pestGroups.forEach((records, pestKey) => {
+      if (records.length < 2) return;
+
+      const sorted = records.sort((a, b) =>
+        b.discoveredDate.localeCompare(a.discoveredDate)
+      );
+
+      const ongoingRecord = sorted.find((r) => r.status === "ongoing");
+      const historyRecords = sorted.filter((r) => r.status === "resolved");
+      const recurrenceCount = historyRecords.length;
+      const lastOccurrence = sorted[0];
+      const lastDate = ongoingRecord
+        ? ongoingRecord.discoveredDate
+        : lastOccurrence.discoveredDate;
+      const daysSinceLast = daysBetween(lastDate, today());
+      const riskLevel = determineRiskLevel(
+        recurrenceCount,
+        !!ongoingRecord,
+        daysSinceLast
+      );
+      const recommendedTreatment = getEffectiveTreatment(sorted);
+      const avgResolutionDays = calculateAverageResolutionDays(sorted);
+
+      alerts.push({
+        id: `alert-${plant.id}-${pestKey}`,
+        plantId: plant.id,
+        plantName: plant.name,
+        plantAvatar: plant.avatar,
+        pestName: sorted[0].name,
+        pestType: sorted[0].type,
+        riskLevel,
+        currentRecord: ongoingRecord,
+        historyRecords,
+        recurrenceCount,
+        recommendedTreatment,
+        lastOccurrenceDate: lastDate,
+        averageResolutionDays: avgResolutionDays,
+      });
+    });
+  });
+
+  return alerts.sort((a, b) => {
+    const priority = { high: 0, medium: 1, low: 2 };
+    return priority[a.riskLevel] - priority[b.riskLevel];
+  });
+};
+
+export const getHighRiskRecurrenceCount = (
+  plants: Plant[],
+  pestRecords: PestRecord[]
+): number => {
+  const alerts = getPestRecurrenceAlerts(plants, pestRecords);
+  return alerts.filter((a) => a.riskLevel === "high").length;
+};
+
+export const getPestHistoryByPlantAndName = (
+  plantId: string,
+  pestName: string,
+  pestRecords: PestRecord[]
+): PestRecord[] => {
+  const key = normalizePestName(pestName);
+  return pestRecords
+    .filter(
+      (p) =>
+        p.plantId === plantId && normalizePestName(p.name) === key
+    )
+    .sort((a, b) => b.discoveredDate.localeCompare(a.discoveredDate));
 };
