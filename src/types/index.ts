@@ -401,3 +401,164 @@ export const RECURRENCE_RISK_COLORS: Record<RecurrenceRiskLevel, { bg: string; t
     dot: "bg-amber-500",
   },
 };
+
+export interface CareTemplateWatering {
+  intervalDays: number;
+  defaultAmount: number;
+  tips: string;
+}
+
+export interface CareTemplateFertilizing {
+  intervalDays: number;
+  defaultAmount: number;
+  defaultFertilizerType: string;
+  tips: string;
+}
+
+export interface CareTemplateLighting {
+  recommendedIntensity: LightIntensity;
+  dailyDurationHours: number;
+  tips: string;
+}
+
+export interface CareTemplate {
+  id: string;
+  name: string;
+  category: PlantCategory;
+  description: string;
+  emoji: string;
+  watering: CareTemplateWatering;
+  fertilizing: CareTemplateFertilizing;
+  lighting: CareTemplateLighting;
+  generalTips: string;
+  isPreset: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const PRESET_CARE_TEMPLATES: Omit<CareTemplate, "id" | "createdAt" | "updatedAt" | "isPreset">[] = [
+  {
+    name: "观叶植物标准养护",
+    category: "观叶植物",
+    description: "适合绿萝、龟背竹、散尾葵等常见观叶植物",
+    emoji: "🌿",
+    watering: {
+      intervalDays: 5,
+      defaultAmount: 200,
+      tips: "保持土壤微湿，避免积水，夏季可适当增加浇水频率",
+    },
+    fertilizing: {
+      intervalDays: 30,
+      defaultAmount: 5,
+      defaultFertilizerType: "复合肥",
+      tips: "生长季每月施一次复合肥，冬季减少施肥",
+    },
+    lighting: {
+      recommendedIntensity: "medium",
+      dailyDurationHours: 4,
+      tips: "喜散射光，避免强光直射，每天4-6小时光照最佳",
+    },
+    generalTips: "定期擦拭叶片保持光泽，注意通风防止病虫害",
+  },
+  {
+    name: "多肉植物耐旱养护",
+    category: "多肉植物",
+    description: "适合景天科、仙人掌科等多肉植物",
+    emoji: "🌵",
+    watering: {
+      intervalDays: 14,
+      defaultAmount: 100,
+      tips: "宁干勿湿，土壤完全干透后再浇水，冬季断水",
+    },
+    fertilizing: {
+      intervalDays: 60,
+      defaultAmount: 3,
+      defaultFertilizerType: "缓释肥",
+      tips: "春秋季各施一次缓释肥，浓度宜淡不宜浓",
+    },
+    lighting: {
+      recommendedIntensity: "high",
+      dailyDurationHours: 6,
+      tips: "喜充足阳光，每天至少6小时直射光，夏季适当遮阴",
+    },
+    generalTips: "选用透气排水好的土壤，夏季高温注意通风降温",
+  },
+  {
+    name: "开花植物促花养护",
+    category: "开花植物",
+    description: "适合月季、茶花、杜鹃等开花植物",
+    emoji: "🌸",
+    watering: {
+      intervalDays: 3,
+      defaultAmount: 250,
+      tips: "花期保持充足水分，花后适当减少浇水",
+    },
+    fertilizing: {
+      intervalDays: 14,
+      defaultAmount: 5,
+      defaultFertilizerType: "磷钾肥",
+      tips: "花期前增施磷钾肥，花后补充复合肥",
+    },
+    lighting: {
+      recommendedIntensity: "high",
+      dailyDurationHours: 6,
+      tips: "喜充足阳光，每天6-8小时光照有利于开花",
+    },
+    generalTips: "及时修剪残花，促进新枝萌发和再次开花",
+  },
+  {
+    name: "香草植物丰沛养护",
+    category: "香草植物",
+    description: "适合薄荷、罗勒、迷迭香等香草植物",
+    emoji: "🌿",
+    watering: {
+      intervalDays: 2,
+      defaultAmount: 150,
+      tips: "生长旺盛期需水量大，保持土壤湿润但不积水",
+    },
+    fertilizing: {
+      intervalDays: 21,
+      defaultAmount: 3,
+      defaultFertilizerType: "液肥",
+      tips: "每3周施一次稀薄液肥，以氮肥为主促进叶片生长",
+    },
+    lighting: {
+      recommendedIntensity: "high",
+      dailyDurationHours: 5,
+      tips: "喜阳光充足，每天至少5小时光照，香味更浓郁",
+    },
+    generalTips: "经常采摘顶芽促进分枝，株型更丰满，产量更高",
+  },
+  {
+    name: "蔬果植物丰产养护",
+    category: "蔬果植物",
+    description: "适合番茄、辣椒、草莓等果蔬植物",
+    emoji: "🍅",
+    watering: {
+      intervalDays: 2,
+      defaultAmount: 300,
+      tips: "结果期需水量大，保持土壤湿润，避免干湿剧烈变化",
+    },
+    fertilizing: {
+      intervalDays: 10,
+      defaultAmount: 8,
+      defaultFertilizerType: "有机肥",
+      tips: "每周施一次腐熟有机肥，结果期增施磷钾肥",
+    },
+    lighting: {
+      recommendedIntensity: "high",
+      dailyDurationHours: 8,
+      tips: "需要充足阳光，每天至少8小时光照才能丰产",
+    },
+    generalTips: "及时搭架整枝，加强通风，注意防治病虫害",
+  },
+];
+
+export const CARE_TEMPLATE_CATEGORY_EMOJIS: Record<PlantCategory, string> = {
+  观叶植物: "🌿",
+  多肉植物: "🌵",
+  开花植物: "🌸",
+  香草植物: "🌱",
+  蔬果植物: "🍅",
+  其他: "🪴",
+};

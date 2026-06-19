@@ -8,8 +8,10 @@ import type {
   CarePlan,
   CareTodo,
   EnvironmentRecord,
+  CareTemplate,
+  PlantCategory,
 } from "@/types";
-import { DEFAULT_CARE_PLANS } from "@/types";
+import { DEFAULT_CARE_PLANS, PRESET_CARE_TEMPLATES } from "@/types";
 import { generateId, now, today, getDaysAgo } from "@/utils/format";
 import { generateCareTodos } from "@/utils/helpers";
 
@@ -280,6 +282,18 @@ const createInitialCarePlans = (): CarePlan[] => {
 
 const MOCK_CARE_PLANS = createInitialCarePlans();
 
+const createInitialCareTemplates = (): CareTemplate[] => {
+  return PRESET_CARE_TEMPLATES.map((template) => ({
+    ...template,
+    id: generateId(),
+    isPreset: true,
+    createdAt: now(),
+    updatedAt: now(),
+  }));
+};
+
+const MOCK_CARE_TEMPLATES = createInitialCareTemplates();
+
 const createMockEnvironmentRecords = (): EnvironmentRecord[] => {
   const locations = ["客厅窗边", "阳台南", "厨房窗台", "阳台东"];
   const records: EnvironmentRecord[] = [];
@@ -312,11 +326,16 @@ interface AppState {
   leafRecords: LeafRecord[];
   pestRecords: PestRecord[];
   carePlans: CarePlan[];
+  careTemplates: CareTemplate[];
   environmentRecords: EnvironmentRecord[];
 
   addPlant: (
     plant: Omit<Plant, "id" | "createdAt" | "updatedAt">
   ) => void;
+  addPlantWithTemplate: (
+    plant: Omit<Plant, "id" | "createdAt" | "updatedAt">,
+    templateId: string
+  ) => string;
   updatePlant: (id: string, data: Partial<Plant>) => void;
   deletePlant: (id: string) => void;
   getPlantById: (id: string) => Plant | undefined;
@@ -344,6 +363,13 @@ interface AppState {
   updateCarePlan: (id: string, data: Partial<CarePlan>) => void;
   deleteCarePlan: (id: string) => void;
   toggleCarePlan: (id: string) => void;
+
+  addCareTemplate: (template: Omit<CareTemplate, "id" | "createdAt" | "updatedAt" | "isPreset">) => void;
+  updateCareTemplate: (id: string, data: Partial<CareTemplate>) => void;
+  deleteCareTemplate: (id: string) => void;
+  getCareTemplatesByCategory: (category: string) => CareTemplate[];
+  getTemplateById: (id: string) => CareTemplate | undefined;
+  applyTemplateToPlant: (plantId: string, templateId: string) => boolean;
 
   addEnvironmentRecord: (
     record: Omit<EnvironmentRecord, "id" | "createdAt">
@@ -374,6 +400,7 @@ export const useAppStore = create<AppState>()(
       leafRecords: MOCK_LEAF_RECORDS,
       pestRecords: MOCK_PEST_RECORDS,
       carePlans: MOCK_CARE_PLANS,
+      careTemplates: MOCK_CARE_TEMPLATES,
       environmentRecords: MOCK_ENVIRONMENT_RECORDS,
 
       addPlant: (plant) =>
@@ -388,6 +415,54 @@ export const useAppStore = create<AppState>()(
             },
           ],
         })),
+
+      addPlantWithTemplate: (plant, templateId) => {
+        const template = get().careTemplates.find((t) => t.id === templateId);
+        const newPlantId = generateId();
+        
+        set((state) => {
+          const newPlant: Plant = {
+            ...plant,
+            id: newPlantId,
+            createdAt: now(),
+            updatedAt: now(),
+          };
+
+          let newPlans: CarePlan[] = [];
+          if (template) {
+            newPlans = [
+              {
+                id: generateId(),
+                category: plant.category as any,
+                taskType: "watering",
+                intervalDays: template.watering.intervalDays,
+                defaultAmount: template.watering.defaultAmount,
+                enabled: true,
+                createdAt: now(),
+                updatedAt: now(),
+              },
+              {
+                id: generateId(),
+                category: plant.category as any,
+                taskType: "fertilizing",
+                intervalDays: template.fertilizing.intervalDays,
+                defaultAmount: template.fertilizing.defaultAmount,
+                defaultFertilizerType: template.fertilizing.defaultFertilizerType,
+                enabled: true,
+                createdAt: now(),
+                updatedAt: now(),
+              },
+            ];
+          }
+
+          return {
+            plants: [...state.plants, newPlant],
+            carePlans: [...state.carePlans, ...newPlans],
+          };
+        });
+
+        return newPlantId;
+      },
 
       updatePlant: (id, data) =>
         set((state) => ({
@@ -518,6 +593,83 @@ export const useAppStore = create<AppState>()(
           ),
         })),
 
+      addCareTemplate: (template) =>
+        set((state) => ({
+          careTemplates: [
+            ...state.careTemplates,
+            {
+              ...template,
+              id: generateId(),
+              isPreset: false,
+              createdAt: now(),
+              updatedAt: now(),
+            },
+          ],
+        })),
+
+      updateCareTemplate: (id, data) =>
+        set((state) => ({
+          careTemplates: state.careTemplates.map((t) =>
+            t.id === id ? { ...t, ...data, updatedAt: now() } : t
+          ),
+        })),
+
+      deleteCareTemplate: (id) =>
+        set((state) => ({
+          careTemplates: state.careTemplates.filter((t) => t.id !== id),
+        })),
+
+      getCareTemplatesByCategory: (category) =>
+        get().careTemplates.filter((t) => t.category === category),
+
+      getTemplateById: (id) => get().careTemplates.find((t) => t.id === id),
+
+      applyTemplateToPlant: (plantId, templateId) => {
+        const template = get().careTemplates.find((t) => t.id === templateId);
+        const plant = get().getPlantById(plantId);
+        
+        if (!template || !plant) return false;
+
+        set((state) => {
+          const categoryPlans = state.carePlans.filter(
+            (p) => p.category === plant.category
+          );
+          const otherPlans = state.carePlans.filter(
+            (p) => p.category !== plant.category
+          );
+
+          const newPlans: CarePlan[] = [
+            {
+              id: generateId(),
+              category: plant.category as PlantCategory,
+              taskType: "watering",
+              intervalDays: template.watering.intervalDays,
+              defaultAmount: template.watering.defaultAmount,
+              enabled: true,
+              createdAt: now(),
+              updatedAt: now(),
+            },
+            {
+              id: generateId(),
+              category: plant.category as PlantCategory,
+              taskType: "fertilizing",
+              intervalDays: template.fertilizing.intervalDays,
+              defaultAmount: template.fertilizing.defaultAmount,
+              defaultFertilizerType: template.fertilizing.defaultFertilizerType,
+              enabled: true,
+              createdAt: now(),
+              updatedAt: now(),
+            },
+          ];
+
+          return {
+            carePlans: [...otherPlans, ...newPlans],
+          };
+        });
+
+        return true;
+      },
+
       addEnvironmentRecord: (record) =>
         set((state) => ({
           environmentRecords: [
@@ -585,7 +737,7 @@ export const useAppStore = create<AppState>()(
       },
 
       exportData: () => {
-        const { plants, careLogs, leafRecords, pestRecords, carePlans, environmentRecords } = get();
+        const { plants, careLogs, leafRecords, pestRecords, carePlans, careTemplates, environmentRecords } = get();
         return JSON.stringify(
           {
             version: "1.0.0",
@@ -595,6 +747,7 @@ export const useAppStore = create<AppState>()(
             leafRecords,
             pestRecords,
             carePlans,
+            careTemplates,
             environmentRecords,
           },
           null,
@@ -618,6 +771,7 @@ export const useAppStore = create<AppState>()(
               leafRecords: data.leafRecords,
               pestRecords: data.pestRecords,
               carePlans: data.carePlans || createInitialCarePlans(),
+              careTemplates: data.careTemplates || createInitialCareTemplates(),
               environmentRecords: data.environmentRecords || [],
             });
             return true;
@@ -635,6 +789,7 @@ export const useAppStore = create<AppState>()(
           leafRecords: [],
           pestRecords: [],
           carePlans: [],
+          careTemplates: [],
           environmentRecords: [],
         }),
 
@@ -645,6 +800,7 @@ export const useAppStore = create<AppState>()(
           leafRecords: MOCK_LEAF_RECORDS,
           pestRecords: MOCK_PEST_RECORDS,
           carePlans: MOCK_CARE_PLANS,
+          careTemplates: MOCK_CARE_TEMPLATES,
           environmentRecords: MOCK_ENVIRONMENT_RECORDS,
         }),
     }),

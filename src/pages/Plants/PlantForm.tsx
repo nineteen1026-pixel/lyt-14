@@ -1,8 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, BookOpen, Droplets, Sprout, Sun, Check } from "lucide-react";
 import { useAppStore } from "@/store";
-import { PLANT_CATEGORIES, PLANT_EMOJIS, PlantCategory } from "@/types";
+import {
+  PLANT_CATEGORIES,
+  PLANT_EMOJIS,
+  PlantCategory,
+  LIGHT_INTENSITY_LABELS,
+  type CareTemplate,
+} from "@/types";
 import { today } from "@/utils/format";
 
 export function PlantForm() {
@@ -12,7 +18,9 @@ export function PlantForm() {
 
   const getPlantById = useAppStore((s) => s.getPlantById);
   const addPlant = useAppStore((s) => s.addPlant);
+  const addPlantWithTemplate = useAppStore((s) => s.addPlantWithTemplate);
   const updatePlant = useAppStore((s) => s.updatePlant);
+  const careTemplates = useAppStore((s) => s.careTemplates);
 
   const existingPlant = id ? getPlantById(id) : undefined;
 
@@ -33,6 +41,25 @@ export function PlantForm() {
     avatar: PLANT_EMOJIS[0],
     notes: "",
   });
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+
+  const categoryTemplates = useMemo(() => {
+    return careTemplates.filter((t) => t.category === form.category);
+  }, [careTemplates, form.category]);
+
+  const selectedTemplate = useMemo(() => {
+    if (!selectedTemplateId) return null;
+    return careTemplates.find((t) => t.id === selectedTemplateId) || null;
+  }, [selectedTemplateId, careTemplates]);
+
+  useEffect(() => {
+    if (categoryTemplates.length > 0 && !selectedTemplateId) {
+      setSelectedTemplateId(categoryTemplates[0].id);
+    } else if (categoryTemplates.length === 0) {
+      setSelectedTemplateId(null);
+    }
+  }, [form.category, categoryTemplates, selectedTemplateId]);
 
   useEffect(() => {
     if (existingPlant) {
@@ -57,7 +84,11 @@ export function PlantForm() {
     if (isEdit && id) {
       updatePlant(id, form);
     } else {
-      addPlant(form);
+      if (selectedTemplateId) {
+        addPlantWithTemplate(form, selectedTemplateId);
+      } else {
+        addPlant(form);
+      }
     }
     navigate("/plants");
   };
@@ -156,6 +187,83 @@ export function PlantForm() {
             onChange={(e) => setForm({ ...form, location: e.target.value })}
           />
         </div>
+
+        {!isEdit && (
+          <div className="pt-2">
+            <label className="label flex items-center gap-2">
+              <BookOpen size={16} />
+              选择养护模板
+              <span className="text-xs text-forest-400 font-normal">
+                新建植物可一键套用养护方案
+              </span>
+            </label>
+
+            {categoryTemplates.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {categoryTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => setSelectedTemplateId(template.id)}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+                        selectedTemplateId === template.id
+                          ? "bg-forest-600 text-white shadow-md"
+                          : "bg-forest-50 text-forest-700 hover:bg-forest-100"
+                      }`}
+                    >
+                      <span className="text-lg">{template.emoji}</span>
+                      <span>{template.name}</span>
+                      {selectedTemplateId === template.id && (
+                        <Check size={14} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedTemplate && (
+                  <div className="p-4 rounded-xl bg-gradient-to-r from-forest-50 to-sky-50 border border-forest-200 space-y-3">
+                    <p className="text-sm text-forest-600">
+                      {selectedTemplate.description}
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-2 bg-white/60 rounded-lg">
+                        <div className="text-xl mb-1">💧</div>
+                        <p className="text-xs text-forest-500">浇水</p>
+                        <p className="text-sm font-bold text-forest-800">
+                          每 {selectedTemplate.watering.intervalDays} 天
+                        </p>
+                      </div>
+                      <div className="text-center p-2 bg-white/60 rounded-lg">
+                        <div className="text-xl mb-1">🌾</div>
+                        <p className="text-xs text-forest-500">施肥</p>
+                        <p className="text-sm font-bold text-forest-800">
+                          每 {selectedTemplate.fertilizing.intervalDays} 天
+                        </p>
+                      </div>
+                      <div className="text-center p-2 bg-white/60 rounded-lg">
+                        <div className="text-xl mb-1">☀️</div>
+                        <p className="text-xs text-forest-500">光照</p>
+                        <p className="text-sm font-bold text-forest-800">
+                          {selectedTemplate.lighting.dailyDurationHours}h/天
+                        </p>
+                      </div>
+                    </div>
+                    {selectedTemplate.generalTips && (
+                      <p className="text-xs text-forest-500 pt-2 border-t border-forest-200/50">
+                        💡 {selectedTemplate.generalTips}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-gray-50 text-center text-sm text-gray-500">
+                该分类暂无养护模板，植物创建后可手动设置养护计划
+              </div>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="label">备注</label>

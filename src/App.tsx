@@ -13,6 +13,8 @@ import { PestForm } from "@/pages/Pests/PestForm";
 import { DataCenter } from "@/pages/DataCenter";
 import { CarePlans } from "@/pages/CarePlans";
 import { CarePlanForm } from "@/pages/CarePlans/CarePlanForm";
+import { CareTemplates } from "@/pages/CareTemplates";
+import { CareTemplateForm } from "@/pages/CareTemplates/CareTemplateForm";
 import { Environment } from "@/pages/Environment";
 import { EnvironmentForm } from "@/pages/Environment/EnvironmentForm";
 
@@ -31,6 +33,9 @@ const router = createBrowserRouter([
       { path: "care-plans", element: <CarePlans /> },
       { path: "care-plans/new", element: <CarePlanForm /> },
       { path: "care-plans/:id/edit", element: <CarePlanForm /> },
+      { path: "care-templates", element: <CareTemplates /> },
+      { path: "care-templates/new", element: <CareTemplateForm /> },
+      { path: "care-templates/:id/edit", element: <CareTemplateForm /> },
       { path: "leaves", element: <Leaves /> },
       { path: "leaves/new", element: <LeafForm /> },
       { path: "pests", element: <Pests /> },
