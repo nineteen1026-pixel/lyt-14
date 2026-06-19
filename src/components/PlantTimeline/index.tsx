@@ -1424,6 +1424,16 @@ function HorizontalTimelineCard({
               </span>
             </div>
           </div>
+
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              isExpanded ? "max-h-[1000px] opacity-100 mt-3" : "max-h-0 opacity-0"
+            }`}
+          >
+            <div className="pt-3 border-t border-dashed border-current/10">
+              {renderExpanded(item)}
+            </div>
+          </div>
         </div>
       </div>
     </div>
