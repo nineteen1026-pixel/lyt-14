@@ -10,6 +10,7 @@ import {
   Bug,
   CalendarDays,
   MapPin,
+  Activity,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { formatDate } from "@/utils/format";
@@ -17,7 +18,9 @@ import {
   getPlantHealthStatus,
   getHealthStatusColor,
   getHealthStatusLabel,
+  calculatePlantHealthScore,
 } from "@/utils/helpers";
+import { HEALTH_LEVEL_LABELS, HEALTH_LEVEL_COLORS } from "@/types";
 import {
   ResponsiveContainer,
   LineChart,
@@ -28,6 +31,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { PlantTimeline } from "@/components/PlantTimeline";
+import { HealthRating } from "@/components/HealthRating";
 
 export function PlantDetail() {
   const { id } = useParams<{ id: string }>();
@@ -72,6 +76,12 @@ export function PlantDetail() {
   }
 
   const health = getPlantHealthStatus(plant, allCareLogs, allPestRecords);
+  const healthScore = calculatePlantHealthScore(
+    plant,
+    allCareLogs,
+    allLeafRecords,
+    allPestRecords
+  );
 
   const chartData = careLogs
     .slice()
@@ -119,6 +129,9 @@ export function PlantDetail() {
               </span>
             </div>
             <p className="text-sm text-forest-500 mt-1">{plant.species}</p>
+            <div className="mt-2">
+              <HealthRating score={healthScore} size="md" showScore />
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -187,6 +200,75 @@ export function PlantDetail() {
             <Bug size={16} />
             记录病虫害
           </Link>
+        </div>
+      </div>
+
+      <div className="card p-5">
+        <h3 className="font-bold text-forest-900 font-serif mb-4 flex items-center gap-2">
+          <Activity size={18} className="text-forest-500" />
+          健康评分分析
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center p-4 bg-forest-50 rounded-xl">
+            <div className={`text-3xl font-bold ${HEALTH_LEVEL_COLORS[healthScore.level]}`}>
+              {healthScore.total}
+            </div>
+            <div className="text-sm text-forest-600 mt-1">综合评分</div>
+            <div className="flex justify-center mt-2">
+              <HealthRating score={healthScore} size="sm" showLabel={false} />
+            </div>
+          </div>
+          <div className="text-center p-4 bg-sky-50 rounded-xl">
+            <div className="text-3xl font-bold text-sky-600">
+              {healthScore.careScore}
+            </div>
+            <div className="text-sm text-sky-700 mt-1">养护频率</div>
+            <div className="mt-2 h-2 bg-sky-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-sky-500 rounded-full transition-all duration-500"
+                style={{ width: `${healthScore.careScore}%` }}
+              />
+            </div>
+          </div>
+          <div className="text-center p-4 bg-emerald-50 rounded-xl">
+            <div className="text-3xl font-bold text-emerald-600">
+              {healthScore.leafScore}
+            </div>
+            <div className="text-sm text-emerald-700 mt-1">叶片状态</div>
+            <div className="mt-2 h-2 bg-emerald-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                style={{ width: `${healthScore.leafScore}%` }}
+              />
+            </div>
+          </div>
+          <div className="text-center p-4 bg-amber-50 rounded-xl">
+            <div className="text-3xl font-bold text-amber-600">
+              {healthScore.pestScore}
+            </div>
+            <div className="text-sm text-amber-700 mt-1">病虫害</div>
+            <div className="mt-2 h-2 bg-amber-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                style={{ width: `${healthScore.pestScore}%` }}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 p-3 bg-cream-50 rounded-xl border border-cream-200">
+          <p className="text-sm text-forest-700">
+            <span className="font-semibold">健康等级：</span>
+            <span className={HEALTH_LEVEL_COLORS[healthScore.level]}>
+              {HEALTH_LEVEL_LABELS[healthScore.level]}
+            </span>
+            <span className="text-forest-500 ml-2">
+              {healthScore.level === "excellent" && "植物状态非常好，继续保持！"}
+              {healthScore.level === "good" && "植物状态良好，定期养护很重要。"}
+              {healthScore.level === "fair" && "植物状态一般，需要加强养护。"}
+              {healthScore.level === "poor" && "植物状态较差，建议及时检查。"}
+              {healthScore.level === "critical" && "植物状态危险，请立即采取措施！"}
+            </span>
+          </p>
         </div>
       </div>
 

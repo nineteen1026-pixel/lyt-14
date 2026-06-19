@@ -1,36 +1,89 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Filter, Edit2, Trash2, ChevronRight } from "lucide-react";
+import { Plus, Search, Filter, Edit2, Trash2, ChevronRight, ArrowUpDown } from "lucide-react";
 import { useAppStore } from "@/store";
 import { PLANT_CATEGORIES } from "@/types";
 import {
   getPlantHealthStatus,
   getHealthStatusColor,
   getHealthStatusLabel,
+  calculatePlantHealthScore,
 } from "@/utils/helpers";
 import { formatDate, daysBetween } from "@/utils/format";
+import { HealthRating } from "@/components/HealthRating";
 
 export function Plants() {
   const plants = useAppStore((s) => s.plants);
   const careLogs = useAppStore((s) => s.careLogs);
+  const leafRecords = useAppStore((s) => s.leafRecords);
   const pestRecords = useAppStore((s) => s.pestRecords);
   const deletePlant = useAppStore((s) => s.deletePlant);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("全部");
   const [healthFilter, setHealthFilter] = useState("全部");
+  const [sortBy, setSortBy] = useState<"name" | "health" | "date">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const plantsWithHealth = useMemo(() => {
+    return plants.map((plant) => ({
+      plant,
+      healthScore: calculatePlantHealthScore(
+        plant,
+        careLogs,
+        leafRecords,
+        pestRecords
+      ),
+    }));
+  }, [plants, careLogs, leafRecords, pestRecords]);
 
   const filteredPlants = useMemo(() => {
-    return plants.filter((p) => {
+    let result = plantsWithHealth.filter(({ plant, healthScore }) => {
       const matchSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.species.toLowerCase().includes(search.toLowerCase());
-      const matchCategory = category === "全部" || p.category === category;
-      const health = getPlantHealthStatus(p, careLogs, pestRecords);
+        plant.name.toLowerCase().includes(search.toLowerCase()) ||
+        plant.species.toLowerCase().includes(search.toLowerCase());
+      const matchCategory = category === "全部" || plant.category === category;
+      const health = getPlantHealthStatus(plant, careLogs, pestRecords);
       const matchHealth = healthFilter === "全部" || health === healthFilter;
       return matchSearch && matchCategory && matchHealth;
     });
-  }, [plants, search, category, healthFilter, careLogs, pestRecords]);
+
+    result = [...result].sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case "name":
+          comparison = a.plant.name.localeCompare(b.plant.name, "zh-CN");
+          break;
+        case "health":
+          comparison = a.healthScore.total - b.healthScore.total;
+          break;
+        case "date":
+          comparison = a.plant.plantedDate.localeCompare(b.plant.plantedDate);
+          break;
+      }
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+
+    return result;
+  }, [
+    plantsWithHealth,
+    search,
+    category,
+    healthFilter,
+    careLogs,
+    pestRecords,
+    sortBy,
+    sortOrder,
+  ]);
+
+  const toggleSort = (field: "name" | "health" | "date") => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
 
   const handleDelete = (id: string, name: string) => {
     if (confirm(`确定删除「${name}」吗？相关的养护记录和病虫害记录也会被删除。`)) {
@@ -90,11 +143,45 @@ export function Plants() {
             </select>
           </div>
         </div>
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-forest-100">
+          <ArrowUpDown size={16} className="text-forest-500" />
+          <span className="text-sm text-forest-600 font-medium">排序：</span>
+          <button
+            onClick={() => toggleSort("name")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              sortBy === "name"
+                ? "bg-forest-500 text-white"
+                : "bg-forest-50 text-forest-600 hover:bg-forest-100"
+            }`}
+          >
+            名称{sortBy === "name" && (sortOrder === "asc" ? " ↑" : " ↓")}
+          </button>
+          <button
+            onClick={() => toggleSort("health")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              sortBy === "health"
+                ? "bg-forest-500 text-white"
+                : "bg-forest-50 text-forest-600 hover:bg-forest-100"
+            }`}
+          >
+            健康评分{sortBy === "health" && (sortOrder === "asc" ? " ↑" : " ↓")}
+          </button>
+          <button
+            onClick={() => toggleSort("date")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              sortBy === "date"
+                ? "bg-forest-500 text-white"
+                : "bg-forest-50 text-forest-600 hover:bg-forest-100"
+            }`}
+          >
+            种植日期{sortBy === "date" && (sortOrder === "asc" ? " ↑" : " ↓")}
+          </button>
+        </div>
       </div>
 
       {filteredPlants.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredPlants.map((plant, i) => {
+          {filteredPlants.map(({ plant, healthScore }, i) => {
             const health = getPlantHealthStatus(plant, careLogs, pestRecords);
             const plantCareLogs = careLogs.filter((l) => l.plantId === plant.id);
             const daysGrowing = daysBetween(plant.plantedDate, formatDate(new Date()));
@@ -127,6 +214,9 @@ export function Plants() {
                   {plant.name}
                 </h3>
                 <p className="text-xs text-forest-500 mb-3">{plant.species}</p>
+                <div className="mb-3">
+                  <HealthRating score={healthScore} size="sm" showScore />
+                </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   <span className="tag bg-forest-50 text-forest-700">
                     {plant.category}

@@ -306,3 +306,28 @@ export const TIMELINE_TIME_RANGE_LABELS: Record<TimelineTimeRange, string> = {
   month: "近一月",
   year: "近一年",
 };
+
+export interface PlantHealthScore {
+  total: number;
+  careScore: number;
+  leafScore: number;
+  pestScore: number;
+  stars: number;
+  level: "excellent" | "good" | "fair" | "poor" | "critical";
+}
+
+export const HEALTH_LEVEL_LABELS: Record<PlantHealthScore["level"], string> = {
+  excellent: "极佳",
+  good: "良好",
+  fair: "一般",
+  poor: "较差",
+  critical: "危险",
+};
+
+export const HEALTH_LEVEL_COLORS: Record<PlantHealthScore["level"], string> = {
+  excellent: "text-emerald-500",
+  good: "text-forest-500",
+  fair: "text-amber-500",
+  poor: "text-orange-500",
+  critical: "text-red-500",
+};

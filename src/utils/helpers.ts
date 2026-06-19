@@ -1,5 +1,17 @@
-import type { Plant, CareLog, LeafRecord, PestRecord, Severity, CarePlan, CareTodo, CareTaskType } from "@/types";
-import { getDaysAgo, formatDate, today } from "./format";
+import type {
+  Plant,
+  CareLog,
+  LeafRecord,
+  PestRecord,
+  Severity,
+  CarePlan,
+  CareTodo,
+  CareTaskType,
+  PlantHealthScore,
+  LeafColor,
+  LeafCurl,
+} from "@/types";
+import { getDaysAgo, formatDate, today, daysBetween } from "./format";
 
 export const getPlantHealthStatus = (
   plant: Plant,
@@ -206,4 +218,220 @@ export const generateCareTodos = (
     if (a.status !== "overdue" && b.status === "overdue") return 1;
     return a.dueDate.localeCompare(b.dueDate);
   });
+};
+
+const LEAF_COLOR_SCORES: Record<LeafColor, number> = {
+  normal: 100,
+  yellowing: 65,
+  browning: 45,
+  spotting: 55,
+  wilting: 25,
+};
+
+const LEAF_CURL_SCORES: Record<LeafCurl, number> = {
+  none: 100,
+  slight: 80,
+  moderate: 55,
+  severe: 25,
+};
+
+const PEST_SEVERITY_SCORES: Record<Severity, number> = {
+  low: 70,
+  medium: 45,
+  high: 15,
+};
+
+const calculateCareScore = (
+  plant: Plant,
+  careLogs: CareLog[],
+  days: number = 30
+): number => {
+  const plantLogs = careLogs.filter((l) => l.plantId === plant.id);
+  const recentLogs = plantLogs.filter(
+    (l) => daysBetween(l.date, today()) <= days
+  );
+
+  if (recentLogs.length === 0) return 30;
+
+  const wateringLogs = recentLogs.filter((l) => l.type === "watering");
+  const fertilizingLogs = recentLogs.filter((l) => l.type === "fertilizing");
+  const lightingLogs = recentLogs.filter((l) => l.type === "lighting");
+
+  let wateringScore = 0;
+  if (wateringLogs.length > 0) {
+    const lastWatering = wateringLogs.sort((a, b) =>
+      b.date.localeCompare(a.date)
+    )[0];
+    const daysSinceWatering = daysBetween(lastWatering.date, today());
+
+    if (daysSinceWatering <= 3) wateringScore = 100;
+    else if (daysSinceWatering <= 7) wateringScore = 85;
+    else if (daysSinceWatering <= 14) wateringScore = 65;
+    else if (daysSinceWatering <= 21) wateringScore = 40;
+    else wateringScore = 20;
+
+    const frequencyScore = Math.min(
+      (wateringLogs.length / (days / 5)) * 100,
+      100
+    );
+    wateringScore = (wateringScore * 0.6 + frequencyScore * 0.4);
+  }
+
+  let fertilizingScore = 50;
+  if (fertilizingLogs.length > 0) {
+    const frequencyScore = Math.min(
+      (fertilizingLogs.length / (days / 15)) * 100,
+      100
+    );
+    fertilizingScore = 50 + frequencyScore * 0.5;
+  }
+
+  let lightingScore = 50;
+  if (lightingLogs.length > 0) {
+    const totalDuration = lightingLogs.reduce(
+      (sum, l) => sum + (l.lightDuration || 0),
+      0
+    );
+    const avgDuration = totalDuration / lightingLogs.length;
+    if (avgDuration >= 6) lightingScore = 100;
+    else if (avgDuration >= 4) lightingScore = 85;
+    else if (avgDuration >= 2) lightingScore = 65;
+    else lightingScore = 45;
+  }
+
+  const totalWeight = 0.5 + 0.3 + 0.2;
+  const weightedScore =
+    (wateringScore * 0.5 +
+      fertilizingScore * 0.3 +
+      lightingScore * 0.2) /
+    totalWeight;
+
+  return Math.round(Math.max(0, Math.min(100, weightedScore)));
+};
+
+const calculateLeafScore = (
+  plant: Plant,
+  leafRecords: LeafRecord[]
+): number => {
+  const plantRecords = leafRecords.filter((r) => r.plantId === plant.id);
+
+  if (plantRecords.length === 0) return 70;
+
+  const sortedRecords = plantRecords.sort((a, b) =>
+    b.date.localeCompare(a.date)
+  );
+
+  let totalScore = 0;
+  let totalWeight = 0;
+
+  sortedRecords.forEach((record, index) => {
+    const weight = Math.max(0.1, 1 - index * 0.15);
+    const colorScore = LEAF_COLOR_SCORES[record.colorStatus];
+    const curlScore = LEAF_CURL_SCORES[record.curlStatus];
+
+    let spotPenalty = 0;
+    if (record.spots.length > 0) {
+      spotPenalty = Math.min(record.spots.length * 10, 30);
+    }
+
+    const recordScore = (colorScore * 0.5 + curlScore * 0.35) - spotPenalty * 0.15;
+    totalScore += recordScore * weight;
+    totalWeight += weight;
+  });
+
+  const avgScore = totalWeight > 0 ? totalScore / totalWeight : 70;
+
+  const latestRecord = sortedRecords[0];
+  const daysSinceLatest = daysBetween(latestRecord.date, today());
+  let recencyFactor = 1;
+  if (daysSinceLatest > 30) recencyFactor = 0.8;
+  if (daysSinceLatest > 60) recencyFactor = 0.6;
+  if (daysSinceLatest > 90) recencyFactor = 0.5;
+
+  return Math.round(Math.max(0, Math.min(100, avgScore * recencyFactor)));
+};
+
+const calculatePestScore = (
+  plant: Plant,
+  pestRecords: PestRecord[]
+): number => {
+  const plantRecords = pestRecords.filter((p) => p.plantId === plant.id);
+
+  if (plantRecords.length === 0) return 100;
+
+  const activePests = plantRecords.filter((p) => p.status === "ongoing");
+  const resolvedPests = plantRecords.filter((p) => p.status === "resolved");
+
+  let activeScore = 100;
+  if (activePests.length > 0) {
+    const worstSeverity = activePests.reduce((worst, pest) => {
+      const score = PEST_SEVERITY_SCORES[pest.severity];
+      return Math.min(worst, score);
+    }, 100);
+    activeScore = worstSeverity;
+
+    const countPenalty = (activePests.length - 1) * 10;
+    activeScore = Math.max(0, activeScore - countPenalty);
+  }
+
+  let resolvedScore = 100;
+  if (resolvedPests.length > 0) {
+    const recentResolved = resolvedPests.filter(
+      (p) => p.resolvedDate && daysBetween(p.resolvedDate, today()) <= 30
+    );
+    if (recentResolved.length > 0) {
+      const worstSeverity = recentResolved.reduce((worst, pest) => {
+        const score = PEST_SEVERITY_SCORES[pest.severity];
+        return Math.min(worst, score);
+      }, 100);
+      resolvedScore = 60 + worstSeverity * 0.3;
+    }
+  }
+
+  const finalScore = activeScore * 0.7 + resolvedScore * 0.3;
+  return Math.round(Math.max(0, Math.min(100, finalScore)));
+};
+
+export const calculatePlantHealthScore = (
+  plant: Plant,
+  careLogs: CareLog[],
+  leafRecords: LeafRecord[],
+  pestRecords: PestRecord[]
+): PlantHealthScore => {
+  const careScore = calculateCareScore(plant, careLogs);
+  const leafScore = calculateLeafScore(plant, leafRecords);
+  const pestScore = calculatePestScore(plant, pestRecords);
+
+  const total = Math.round(
+    careScore * 0.3 + leafScore * 0.35 + pestScore * 0.35
+  );
+
+  let stars: number;
+  let level: PlantHealthScore["level"];
+
+  if (total >= 90) {
+    stars = 5;
+    level = "excellent";
+  } else if (total >= 75) {
+    stars = 4;
+    level = "good";
+  } else if (total >= 60) {
+    stars = 3;
+    level = "fair";
+  } else if (total >= 40) {
+    stars = 2;
+    level = "poor";
+  } else {
+    stars = 1;
+    level = "critical";
+  }
+
+  return {
+    total,
+    careScore,
+    leafScore,
+    pestScore,
+    stars,
+    level,
+  };
 };
