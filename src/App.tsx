@@ -13,6 +13,8 @@ import { PestForm } from "@/pages/Pests/PestForm";
 import { DataCenter } from "@/pages/DataCenter";
 import { CarePlans } from "@/pages/CarePlans";
 import { CarePlanForm } from "@/pages/CarePlans/CarePlanForm";
+import { Environment } from "@/pages/Environment";
+import { EnvironmentForm } from "@/pages/Environment/EnvironmentForm";
 
 const router = createBrowserRouter([
   {
@@ -33,6 +35,8 @@ const router = createBrowserRouter([
       { path: "leaves/new", element: <LeafForm /> },
       { path: "pests", element: <Pests /> },
       { path: "pests/new", element: <PestForm /> },
+      { path: "environment", element: <Environment /> },
+      { path: "environment/new", element: <EnvironmentForm /> },
       { path: "data", element: <DataCenter /> },
     ],
   },

@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   CalendarClock,
   ChevronRight,
+  Thermometer,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { generateCareTodos } from "@/utils/helpers";
@@ -16,6 +17,7 @@ import { generateCareTodos } from "@/utils/helpers";
 const navItems = [
   { path: "/", label: "仪表盘", icon: LayoutDashboard, emoji: "🌿", badge: "todos" as const },
   { path: "/plants", label: "植物管理", icon: Leaf, emoji: "🪴", badge: "plants" as const },
+  { path: "/environment", label: "环境监测", icon: Thermometer, emoji: "🌡️", badge: null },
   { path: "/care-plans", label: "养护计划", icon: CalendarClock, emoji: "📅", badge: "todos" as const },
   { path: "/care-logs", label: "养护日志", icon: Droplets, emoji: "💧", badge: null },
   { path: "/leaves", label: "叶片监测", icon: ImageIcon, emoji: "🍃", badge: null },

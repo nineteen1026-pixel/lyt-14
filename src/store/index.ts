@@ -7,6 +7,7 @@ import type {
   PestRecord,
   CarePlan,
   CareTodo,
+  EnvironmentRecord,
 } from "@/types";
 import { DEFAULT_CARE_PLANS } from "@/types";
 import { generateId, now, today, getDaysAgo } from "@/utils/format";
@@ -208,12 +209,39 @@ const createInitialCarePlans = (): CarePlan[] => {
 
 const MOCK_CARE_PLANS = createInitialCarePlans();
 
+const createMockEnvironmentRecords = (): EnvironmentRecord[] => {
+  const locations = ["客厅窗边", "阳台南", "厨房窗台", "阳台东"];
+  const records: EnvironmentRecord[] = [];
+  for (let i = 0; i < 30; i++) {
+    const date = getDaysAgo(i);
+    locations.forEach((location, locIdx) => {
+      const baseTemp = 20 + locIdx * 2;
+      const baseHumidity = 55 + locIdx * 5;
+      const baseLight = 3000 + locIdx * 2000;
+      records.push({
+        id: `env-${i}-${locIdx}`,
+        location,
+        date,
+        temperature: Math.round((baseTemp + (Math.random() - 0.5) * 8) * 10) / 10,
+        humidity: Math.round(baseHumidity + (Math.random() - 0.5) * 20),
+        light: Math.round(baseLight + (Math.random() - 0.5) * 3000),
+        notes: "",
+        createdAt: `${date}T08:00:00Z`,
+      });
+    });
+  }
+  return records;
+};
+
+const MOCK_ENVIRONMENT_RECORDS = createMockEnvironmentRecords();
+
 interface AppState {
   plants: Plant[];
   careLogs: CareLog[];
   leafRecords: LeafRecord[];
   pestRecords: PestRecord[];
   carePlans: CarePlan[];
+  environmentRecords: EnvironmentRecord[];
 
   addPlant: (
     plant: Omit<Plant, "id" | "createdAt" | "updatedAt">
@@ -246,6 +274,14 @@ interface AppState {
   deleteCarePlan: (id: string) => void;
   toggleCarePlan: (id: string) => void;
 
+  addEnvironmentRecord: (
+    record: Omit<EnvironmentRecord, "id" | "createdAt">
+  ) => void;
+  updateEnvironmentRecord: (id: string, data: Partial<EnvironmentRecord>) => void;
+  deleteEnvironmentRecord: (id: string) => void;
+  getEnvironmentRecordsByLocation: (location: string) => EnvironmentRecord[];
+  getEnvironmentLocations: () => string[];
+
   getCareTodos: () => CareTodo[];
   getPendingTodoCount: () => number;
   completeTodoWithLog: (
@@ -267,6 +303,7 @@ export const useAppStore = create<AppState>()(
       leafRecords: MOCK_LEAF_RECORDS,
       pestRecords: MOCK_PEST_RECORDS,
       carePlans: MOCK_CARE_PLANS,
+      environmentRecords: MOCK_ENVIRONMENT_RECORDS,
 
       addPlant: (plant) =>
         set((state) => ({
@@ -410,6 +447,37 @@ export const useAppStore = create<AppState>()(
           ),
         })),
 
+      addEnvironmentRecord: (record) =>
+        set((state) => ({
+          environmentRecords: [
+            { ...record, id: generateId(), createdAt: now() },
+            ...state.environmentRecords,
+          ],
+        })),
+
+      updateEnvironmentRecord: (id, data) =>
+        set((state) => ({
+          environmentRecords: state.environmentRecords.map((r) =>
+            r.id === id ? { ...r, ...data } : r
+          ),
+        })),
+
+      deleteEnvironmentRecord: (id) =>
+        set((state) => ({
+          environmentRecords: state.environmentRecords.filter((r) => r.id !== id),
+        })),
+
+      getEnvironmentRecordsByLocation: (location) =>
+        get()
+          .environmentRecords.filter((r) => r.location === location)
+          .sort((a, b) => b.date.localeCompare(a.date)),
+
+      getEnvironmentLocations: () => {
+        const locations = new Set(get().environmentRecords.map((r) => r.location));
+        get().plants.forEach((p) => p.location && locations.add(p.location));
+        return Array.from(locations);
+      },
+
       getCareTodos: () => {
         const { plants, carePlans, careLogs } = get();
         return generateCareTodos(plants, carePlans, careLogs);
@@ -446,7 +514,7 @@ export const useAppStore = create<AppState>()(
       },
 
       exportData: () => {
-        const { plants, careLogs, leafRecords, pestRecords, carePlans } = get();
+        const { plants, careLogs, leafRecords, pestRecords, carePlans, environmentRecords } = get();
         return JSON.stringify(
           {
             version: "1.0.0",
@@ -456,6 +524,7 @@ export const useAppStore = create<AppState>()(
             leafRecords,
             pestRecords,
             carePlans,
+            environmentRecords,
           },
           null,
           2
@@ -478,6 +547,7 @@ export const useAppStore = create<AppState>()(
               leafRecords: data.leafRecords,
               pestRecords: data.pestRecords,
               carePlans: data.carePlans || createInitialCarePlans(),
+              environmentRecords: data.environmentRecords || [],
             });
             return true;
           }
@@ -494,6 +564,7 @@ export const useAppStore = create<AppState>()(
           leafRecords: [],
           pestRecords: [],
           carePlans: [],
+          environmentRecords: [],
         }),
 
       resetWithMockData: () =>
@@ -503,6 +574,7 @@ export const useAppStore = create<AppState>()(
           leafRecords: MOCK_LEAF_RECORDS,
           pestRecords: MOCK_PEST_RECORDS,
           carePlans: MOCK_CARE_PLANS,
+          environmentRecords: MOCK_ENVIRONMENT_RECORDS,
         }),
     }),
     {

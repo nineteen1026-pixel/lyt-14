@@ -18,6 +18,7 @@ import {
   plantsToCSV,
   careLogsToCSV,
   pestsToCSV,
+  environmentRecordsToCSV,
 } from "@/utils/export";
 import { formatDateTime } from "@/utils/format";
 
@@ -26,6 +27,7 @@ export function DataCenter() {
   const careLogs = useAppStore((s) => s.careLogs);
   const leafRecords = useAppStore((s) => s.leafRecords);
   const pestRecords = useAppStore((s) => s.pestRecords);
+  const environmentRecords = useAppStore((s) => s.environmentRecords);
   const exportData = useAppStore((s) => s.exportData);
   const importData = useAppStore((s) => s.importData);
   const clearAllData = useAppStore((s) => s.clearAllData);
@@ -38,7 +40,7 @@ export function DataCenter() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalRecords =
-    plants.length + careLogs.length + leafRecords.length + pestRecords.length;
+    plants.length + careLogs.length + leafRecords.length + pestRecords.length + environmentRecords.length;
 
   const handleExportJSON = () => {
     const json = exportData();
@@ -90,6 +92,13 @@ export function DataCenter() {
     );
   };
 
+  const handleExportEnvironmentCSV = () => {
+    downloadCSV(
+      environmentRecordsToCSV(environmentRecords),
+      `environment-records-${formatDateTime(new Date()).replace(/[: ]/g, "-")}.csv`
+    );
+  };
+
   const handleClearData = () => {
     if (confirm("确定清空所有数据吗？此操作不可撤销！")) {
       if (confirm("再次确认：真的要删除所有植物、日志和记录吗？")) {
@@ -109,6 +118,7 @@ export function DataCenter() {
     { label: "养护记录", value: careLogs.length, icon: "💧", color: "from-sky-400 to-sky-600" },
     { label: "叶片记录", value: leafRecords.length, icon: "🍃", color: "from-emerald-400 to-emerald-600" },
     { label: "病虫害", value: pestRecords.length, icon: "🐛", color: "from-amber-400 to-amber-600" },
+    { label: "环境监测", value: environmentRecords.length, icon: "🌡️", color: "from-rose-400 to-rose-600" },
   ];
 
   return (
@@ -128,7 +138,7 @@ export function DataCenter() {
             <p className="text-sm text-forest-500">共 {totalRecords} 条数据记录</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {stats.map((s, i) => (
             <div
               key={s.label}
@@ -256,6 +266,18 @@ export function DataCenter() {
                 <p className="text-xs text-forest-500">{pestRecords.length} 条记录</p>
               </div>
               <Download size={16} className="text-amber-500" />
+            </button>
+            <button
+              onClick={handleExportEnvironmentCSV}
+              disabled={environmentRecords.length === 0}
+              className="w-full flex items-center gap-3 p-4 rounded-xl bg-rose-50 hover:bg-rose-100 transition-all border border-rose-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="text-xl">🌡️</span>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-forest-800">环境监测记录</p>
+                <p className="text-xs text-forest-500">{environmentRecords.length} 条记录</p>
+              </div>
+              <Download size={16} className="text-rose-500" />
             </button>
           </div>
         </div>

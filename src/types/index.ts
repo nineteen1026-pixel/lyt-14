@@ -331,3 +331,28 @@ export const HEALTH_LEVEL_COLORS: Record<PlantHealthScore["level"], string> = {
   poor: "text-orange-500",
   critical: "text-red-500",
 };
+
+export interface EnvironmentRecord {
+  id: string;
+  location: string;
+  date: string;
+  temperature: number;
+  humidity: number;
+  light: number;
+  notes: string;
+  createdAt: string;
+}
+
+export const ENVIRONMENT_FIELD_LABELS = {
+  temperature: "温度",
+  humidity: "湿度",
+  light: "光照",
+  location: "位置",
+  date: "日期",
+};
+
+export const ENVIRONMENT_FIELD_UNITS = {
+  temperature: "°C",
+  humidity: "%",
+  light: "lux",
+};

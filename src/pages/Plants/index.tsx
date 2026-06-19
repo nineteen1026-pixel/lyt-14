@@ -38,7 +38,7 @@ export function Plants() {
   }, [plants, careLogs, leafRecords, pestRecords]);
 
   const filteredPlants = useMemo(() => {
-    let result = plantsWithHealth.filter(({ plant, healthScore }) => {
+    let result = plantsWithHealth.filter(({ plant }) => {
       const matchSearch =
         plant.name.toLowerCase().includes(search.toLowerCase()) ||
         plant.species.toLowerCase().includes(search.toLowerCase());

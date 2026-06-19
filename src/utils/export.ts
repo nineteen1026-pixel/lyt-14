@@ -4,6 +4,7 @@ import type {
   LeafRecord,
   PestRecord,
   CareLogType,
+  EnvironmentRecord,
 } from "@/types";
 
 export interface ExportData {
@@ -13,13 +14,15 @@ export interface ExportData {
   careLogs: CareLog[];
   leafRecords: LeafRecord[];
   pestRecords: PestRecord[];
+  environmentRecords: EnvironmentRecord[];
 }
 
 export const exportAllData = (
   plants: Plant[],
   careLogs: CareLog[],
   leafRecords: LeafRecord[],
-  pestRecords: PestRecord[]
+  pestRecords: PestRecord[],
+  environmentRecords: EnvironmentRecord[] = []
 ): string => {
   const data: ExportData = {
     version: "1.0.0",
@@ -28,6 +31,7 @@ export const exportAllData = (
     careLogs,
     leafRecords,
     pestRecords,
+    environmentRecords,
   };
   return JSON.stringify(data, null, 2);
 };
@@ -161,6 +165,32 @@ const escapeCSV = (value: string): string => {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
+};
+
+export const environmentRecordsToCSV = (
+  records: EnvironmentRecord[]
+): string => {
+  const headers = [
+    "ID",
+    "位置",
+    "日期",
+    "温度(°C)",
+    "湿度(%)",
+    "光照(lux)",
+    "备注",
+    "创建时间",
+  ];
+  const rows = records.map((r) => [
+    r.id,
+    r.location,
+    r.date,
+    r.temperature,
+    r.humidity,
+    r.light,
+    escapeCSV(r.notes),
+    r.createdAt,
+  ]);
+  return [headers, ...rows].map((r) => r.join(",")).join("\n");
 };
 
 export const parseImportData = (json: string): ExportData | null => {
