@@ -331,10 +331,11 @@ const calculateLeafScore = (
 
     let spotPenalty = 0;
     if (record.spots.length > 0) {
-      spotPenalty = Math.min(record.spots.length * 10, 30);
+      spotPenalty = Math.min(record.spots.length * 15, 25);
     }
 
-    const recordScore = (colorScore * 0.5 + curlScore * 0.35) - spotPenalty * 0.15;
+    const baseScore = colorScore * 0.55 + curlScore * 0.45;
+    const recordScore = baseScore * (1 - spotPenalty / 100);
     totalScore += recordScore * weight;
     totalWeight += weight;
   });
