@@ -42,6 +42,22 @@ export interface SpotInfo {
   description: string;
 }
 
+export interface NewLeafInfo {
+  count: number;
+  size?: string;
+  description?: string;
+}
+
+export interface LeafSizeChange {
+  previousLength?: number;
+  currentLength?: number;
+  previousWidth?: number;
+  currentWidth?: number;
+  unit?: string;
+  growthRate?: string;
+  description?: string;
+}
+
 export interface LeafRecord {
   id: string;
   plantId: string;
@@ -51,6 +67,8 @@ export interface LeafRecord {
   curlStatus: LeafCurl;
   images: string[];
   notes: string;
+  newLeaves?: NewLeafInfo;
+  leafSize?: LeafSizeChange;
   createdAt: string;
 }
 

@@ -98,6 +98,20 @@ const MOCK_LEAF_RECORDS: LeafRecord[] = [
     curlStatus: "none",
     images: [],
     notes: "叶片翠绿，生长状态良好。",
+    newLeaves: {
+      count: 2,
+      size: "小",
+      description: "新长出2片嫩叶，颜色嫩黄绿色",
+    },
+    leafSize: {
+      previousLength: 8,
+      currentLength: 10,
+      previousWidth: 4,
+      currentWidth: 5,
+      unit: "cm",
+      growthRate: "+25%",
+      description: "最大叶片明显增大，叶形饱满",
+    },
     createdAt: `${getDaysAgo(3)}T10:00:00Z`,
   },
   {
@@ -111,7 +125,37 @@ const MOCK_LEAF_RECORDS: LeafRecord[] = [
     curlStatus: "none",
     images: [],
     notes: "疑似黑斑病初期，已摘除病叶。",
+    newLeaves: {
+      count: 1,
+      size: "小",
+      description: "顶芽抽出1片新叶，暂时未发现病斑",
+    },
+    leafSize: {
+      previousLength: 6,
+      currentLength: 6.5,
+      previousWidth: 3,
+      currentWidth: 3.2,
+      unit: "cm",
+      growthRate: "+8%",
+      description: "生长速度偏慢，可能受病害影响",
+    },
     createdAt: `${getDaysAgo(5)}T09:30:00Z`,
+  },
+  {
+    id: "leaf-3",
+    plantId: "plant-2",
+    date: getDaysAgo(10),
+    colorStatus: "normal",
+    spots: [],
+    curlStatus: "none",
+    images: [],
+    notes: "多肉状态不错，叶片饱满有光泽。",
+    newLeaves: {
+      count: 3,
+      size: "小",
+      description: "中心长出3片新叶，呈莲座状排列",
+    },
+    createdAt: `${getDaysAgo(10)}T14:00:00Z`,
   },
 ];
 

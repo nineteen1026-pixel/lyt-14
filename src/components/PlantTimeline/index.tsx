@@ -1,7 +1,9 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Filter,
   X,
   Plus,
@@ -17,6 +19,10 @@ import {
   Clock,
   Trash2,
   Edit2,
+  LayoutList,
+  Rows,
+  TrendingUp,
+  Sprout,
 } from "lucide-react";
 import type {
   CareLog,
@@ -51,6 +57,8 @@ interface PlantTimelineProps {
 }
 
 const PAGE_SIZE = 10;
+
+export type TimelineLayout = "vertical" | "horizontal";
 
 function isValidDate(dateStr: string): boolean {
   if (!dateStr) return false;
@@ -176,6 +184,12 @@ function getLeafSummary(record: LeafRecord): string {
   const parts = [LEAF_COLOR_LABELS[record.colorStatus]];
   if (record.curlStatus !== "none") parts.push(LEAF_CURL_LABELS[record.curlStatus]);
   if (record.spots.length > 0) parts.push(`共${record.spots.length}处斑点`);
+  if (record.newLeaves && record.newLeaves.count > 0) {
+    parts.push(`新叶${record.newLeaves.count}片`);
+  }
+  if (record.leafSize && record.leafSize.growthRate) {
+    parts.push(`叶片${record.leafSize.growthRate}`);
+  }
   return parts.join(" · ");
 }
 
@@ -212,6 +226,8 @@ export function PlantTimeline({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [careSubFilter, setCareSubFilter] = useState<string>("all");
+  const [layout, setLayout] = useState<TimelineLayout>("vertical");
+  const horizontalScrollRef = useRef<HTMLDivElement>(null);
 
   const deleteCareLog = useAppStore((s) => s.deleteCareLog);
   const deleteLeafRecord = useAppStore((s) => s.deleteLeafRecord);
@@ -250,6 +266,16 @@ export function PlantTimeline({
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [filterType, timeRange, careSubFilter]);
+
+  useEffect(() => {
+    if (layout === "horizontal" && horizontalScrollRef.current) {
+      setTimeout(() => {
+        if (horizontalScrollRef.current) {
+          horizontalScrollRef.current.scrollLeft = horizontalScrollRef.current.scrollWidth;
+        }
+      }, 50);
+    }
+  }, [layout, visibleCount]);
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -359,6 +385,111 @@ export function PlantTimeline({
     ));
   };
 
+  const scrollHorizontal = (direction: "left" | "right") => {
+    if (!horizontalScrollRef.current) return;
+    const scrollAmount = 320;
+    horizontalScrollRef.current.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
+
+  const renderHorizontalTimeline = () => {
+    if (filteredRecords.length === 0) return null;
+    const records = filteredRecords
+      .slice(0, Math.min(visibleCount, filteredRecords.length))
+      .reverse();
+
+    return (
+      <div className="relative">
+        <div className="absolute top-[52px] left-0 right-0 h-[2px] bg-gradient-to-r from-forest-200 via-forest-150 to-forest-100 rounded-full z-0" />
+
+        <div className="flex items-center justify-between mb-3">
+          <button
+            onClick={() => scrollHorizontal("left")}
+            className="btn-ghost !p-2 !rounded-full"
+            title="向左滚动"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="text-xs text-forest-500 font-medium">
+            从早到晚 · 共 {filteredRecords.length} 条记录
+          </span>
+          <button
+            onClick={() => scrollHorizontal("right")}
+            className="btn-ghost !p-2 !rounded-full"
+            title="向右滚动"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        <div
+          ref={horizontalScrollRef}
+          className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-forest-200 scrollbar-track-forest-50"
+          style={{ scrollbarWidth: "thin" } as React.CSSProperties}
+        >
+          {records.map((item, idx) => (
+            <HorizontalTimelineCard
+              key={item.id}
+              item={item}
+              isFirst={idx === 0}
+              isLast={idx === records.length - 1}
+              isExpanded={expandedIds.has(item.id)}
+              onToggle={() => toggleExpand(item.id)}
+              onDelete={() => handleDelete(item)}
+              plantId={plantId}
+            />
+          ))}
+          {hasMore && (
+            <div className="shrink-0 flex items-center justify-center min-w-[200px]">
+              <button
+                onClick={() =>
+                  setVisibleCount((prev) =>
+                    Math.min(prev + PAGE_SIZE, filteredRecords.length)
+                  )
+                }
+                className="btn-secondary !px-4 !py-2 flex-col gap-1 h-auto"
+              >
+                <Plus size={18} />
+                <span className="text-xs">
+                  加载更多</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderVerticalTimeline = () => {
+    if (filteredRecords.length === 0) return null;
+    return (
+      <div className="relative">
+        <div className="hidden md:block absolute left-[30px] top-2 bottom-2 w-[2px] bg-gradient-to-b from-forest-200 via-forest-150 to-forest-100 rounded-full" />
+        <div className="block md:hidden absolute left-[22px] top-2 bottom-2 w-[2px] bg-gradient-to-b from-forest-200 via-forest-150 to-forest-100 rounded-full" />
+
+        {renderGroupedWithDays()}
+
+        {hasMore && (
+          <div className="flex justify-center py-4">
+            <button
+              onClick={() =>
+                setVisibleCount((prev) =>
+                  Math.min(prev + PAGE_SIZE, filteredRecords.length)
+                )
+              }
+              className="btn-secondary !px-6 !py-2"
+            >
+              <ChevronDown size={16} />
+              加载更多 ({filteredRecords.length - visibleCount} 条剩余)
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="card p-5">
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
@@ -374,6 +505,32 @@ export function PlantTimeline({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center p-1 bg-forest-50 rounded-xl">
+            <button
+              onClick={() => setLayout("vertical")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                layout === "vertical"
+                  ? "bg-white text-forest-700 shadow-sm"
+                  : "text-forest-500 hover:text-forest-700"
+              }`}
+              title="纵向时间轴"
+            >
+              <Rows size={14} />
+              <span className="hidden sm:inline">纵向</span>
+            </button>
+            <button
+              onClick={() => setLayout("horizontal")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                layout === "horizontal"
+                  ? "bg-white text-forest-700 shadow-sm"
+                  : "text-forest-500 hover:text-forest-700"
+              }`}
+              title="横向时间轴"
+            >
+              <LayoutList size={14} />
+              <span className="hidden sm:inline">横向</span>
+            </button>
+          </div>
           <button
             onClick={() => setShowAdvanced((s) => !s)}
             className={`btn-ghost !px-3 !py-2 transition-all ${
@@ -541,25 +698,14 @@ export function PlantTimeline({
       </div>
 
       {filteredRecords.length > 0 ? (
-        <div className="relative">
-          <div className="hidden md:block absolute left-[30px] top-2 bottom-2 w-[2px] bg-gradient-to-b from-forest-200 via-forest-150 to-forest-100 rounded-full" />
-          <div className="block md:hidden absolute left-[22px] top-2 bottom-2 w-[2px] bg-gradient-to-b from-forest-200 via-forest-150 to-forest-100 rounded-full" />
-
-          {renderGroupedWithDays()}
-
-          {hasMore && (
-            <div className="flex justify-center py-4">
-              <button
-                onClick={() =>
-                  setVisibleCount((prev) =>
-                    Math.min(prev + PAGE_SIZE, filteredRecords.length)
-                  )
-                }
-                className="btn-secondary !px-6 !py-2"
-              >
-                <ChevronDown size={16} />
-                加载更多 ({filteredRecords.length - visibleCount} 条剩余)
-              </button>
+        <div className="transition-all duration-300">
+          {layout === "vertical" ? (
+            <div key="vertical" className="animate-[fadeIn_0.3s_ease]">
+              {renderVerticalTimeline()}
+            </div>
+          ) : (
+            <div key="horizontal" className="animate-[fadeIn_0.3s_ease]">
+              {renderHorizontalTimeline()}
             </div>
           )}
         </div>
@@ -753,6 +899,19 @@ function LeafRecordContent({
         </span>
       </div>
       <p className="text-sm text-forest-700 font-medium">{getLeafSummary(record)}</p>
+      {!expanded && record.newLeaves && record.newLeaves.count > 0 && (
+        <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
+          <Sprout size={11} />
+          新叶 {record.newLeaves.count} 片
+          {record.newLeaves.size ? ` · ${record.newLeaves.size}` : ""}
+        </p>
+      )}
+      {!expanded && record.leafSize && record.leafSize.growthRate && (
+        <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+          <TrendingUp size={11} />
+          叶片尺寸变化 {record.leafSize.growthRate}
+        </p>
+      )}
       {!expanded && record.notes && (
         <p className="text-xs text-forest-500 mt-1.5 line-clamp-2">📝 {record.notes}</p>
       )}
@@ -885,7 +1044,69 @@ function renderExpanded(item: TimelineGroupedRecord) {
           <InfoRow label="观察日期" value={formatDate(record.date)} icon={<Calendar size={12} />} />
           <InfoRow label="叶片颜色" value={LEAF_COLOR_LABELS[record.colorStatus]} icon={<Leaf size={12} />} />
           <InfoRow label="卷曲状态" value={LEAF_CURL_LABELS[record.curlStatus]} />
+          {record.newLeaves && record.newLeaves.count > 0 && (
+            <InfoRow
+              label="新叶数量"
+              value={`${record.newLeaves.count} 片${record.newLeaves.size ? ` · ${record.newLeaves.size}` : ""}`}
+              icon={<Sprout size={12} />}
+            />
+          )}
+          {record.leafSize && record.leafSize.currentLength != null && (
+            <InfoRow
+              label="叶片尺寸"
+              value={`${record.leafSize.currentLength} × ${record.leafSize.currentWidth ?? "-"} ${record.leafSize.unit ?? "cm"}`}
+              icon={<TrendingUp size={12} />}
+            />
+          )}
+          {record.leafSize && record.leafSize.growthRate && (
+            <InfoRow
+              label="生长速率"
+              value={record.leafSize.growthRate}
+              icon={<Sparkles size={12} />}
+            />
+          )}
         </div>
+        {record.newLeaves && record.newLeaves.description && (
+          <div className="p-3 bg-white rounded-xl border border-emerald-100">
+            <p className="text-xs text-emerald-600 font-medium mb-1 flex items-center gap-1">
+              <Sprout size={12} /> 新叶描述
+            </p>
+            <p className="text-sm text-forest-700 leading-relaxed">
+              {record.newLeaves.description}
+            </p>
+          </div>
+        )}
+        {record.leafSize && (record.leafSize.previousLength != null || record.leafSize.description) && (
+          <div className="p-3 bg-white rounded-xl border border-emerald-100">
+            <p className="text-xs text-emerald-600 font-medium mb-2 flex items-center gap-1">
+              <TrendingUp size={12} /> 尺寸变化对比
+            </p>
+            {record.leafSize.previousLength != null && (
+              <div className="grid grid-cols-3 gap-2 text-center text-xs mb-2">
+                <div className="p-2 bg-forest-50 rounded-lg">
+                  <p className="text-forest-400 text-[10px] mb-0.5">之前</p>
+                  <p className="font-semibold text-forest-700">
+                    {record.leafSize.previousLength} × {record.leafSize.previousWidth ?? "-"} {record.leafSize.unit ?? "cm"}
+                  </p>
+                </div>
+                <div className="flex items-center justify-center text-forest-300">
+                  <ChevronRight size={16} />
+                </div>
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <p className="text-emerald-500 text-[10px] mb-0.5">现在</p>
+                  <p className="font-semibold text-emerald-700">
+                    {record.leafSize.currentLength} × {record.leafSize.currentWidth ?? "-"} {record.leafSize.unit ?? "cm"}
+                  </p>
+                </div>
+              </div>
+            )}
+            {record.leafSize.description && (
+              <p className="text-sm text-forest-700 leading-relaxed">
+                {record.leafSize.description}
+              </p>
+            )}
+          </div>
+        )}
         {record.spots.length > 0 && (
           <div className="p-3 bg-white rounded-xl border border-emerald-100">
             <p className="text-xs text-emerald-600 font-medium mb-2">🔬 斑点详情 ({record.spots.length}处)</p>
@@ -1051,6 +1272,160 @@ function renderExpanded(item: TimelineGroupedRecord) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+interface HorizontalTimelineCardProps {
+  item: TimelineGroupedRecord;
+  isFirst: boolean;
+  isLast: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onDelete: () => void;
+  plantId: string;
+}
+
+function HorizontalTimelineCard({
+  item,
+  isFirst,
+  isLast,
+  isExpanded,
+  onToggle,
+  onDelete,
+  plantId,
+}: HorizontalTimelineCardProps) {
+  const colors = TIMELINE_KIND_COLORS[item.kind];
+  const { emoji } = getIcon(item.kind, item.record);
+
+  const renderCompactContent = () => {
+    if (item.record.kind === "care") {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-xs text-forest-600">
+            {item.record.data.type === "watering" && <Droplets size={12} className="text-sky-500" />}
+            {item.record.data.type === "fertilizing" && <Sparkles size={12} className="text-amber-500" />}
+            {item.record.data.type === "lighting" && <Sun size={12} className="text-orange-500" />}
+            <span className="font-medium">{CARE_TYPE_LABELS[item.record.data.type]}</span>
+          </div>
+          <p className="text-sm font-semibold text-forest-800 line-clamp-2">
+            {getCareSummary(item.record.data)}
+          </p>
+        </div>
+      );
+    }
+    if (item.record.kind === "leaf") {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-xs text-forest-600">
+            <Leaf size={12} className="text-emerald-500" />
+            <span className="font-medium">叶片观察</span>
+          </div>
+          <p className="text-sm font-semibold text-forest-800 line-clamp-2">
+            {getLeafSummary(item.record.data)}
+          </p>
+          {item.record.data.newLeaves && item.record.data.newLeaves.count > 0 && (
+            <p className="text-[11px] text-emerald-600 flex items-center gap-1">
+              <Sprout size={10} /> 新叶 {item.record.data.newLeaves.count} 片
+            </p>
+          )}
+          {item.record.data.leafSize && item.record.data.leafSize.growthRate && (
+            <p className="text-[11px] text-emerald-600 flex items-center gap-1">
+              <TrendingUp size={10} /> {item.record.data.leafSize.growthRate}
+            </p>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-1.5 text-xs text-forest-600">
+          {item.record.data.type === "disease" ? (
+            <AlertTriangle size={12} className="text-amber-500" />
+          ) : (
+            <Bug size={12} className="text-orange-500" />
+          )}
+          <span className="font-medium">{item.record.data.name}</span>
+        </div>
+        <p className="text-sm font-semibold text-forest-800 line-clamp-2">
+          {getPestSummary(item.record.data)}
+        </p>
+        <p className="text-[11px] text-forest-500 line-clamp-2">
+          {item.record.data.symptoms}
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="shrink-0 w-[240px] sm:w-[260px] relative group/card">
+      <div className="absolute top-12 left-0 right-0 h-[2px] bg-forest-100 -z-0" />
+      {isFirst && (
+        <div className="absolute top-12 right-1/2 left-0 h-[2px] bg-gradient-to-r from-transparent to-forest-100 -z-0" />
+      )}
+      {isLast && (
+        <div className="absolute top-12 right-0 left-1/2 h-[2px] bg-gradient-to-l from-transparent to-forest-100 -z-0" />
+      )}
+
+      <div className="flex flex-col items-center">
+        <div className="text-xs font-medium text-forest-500 mb-2 h-4">
+          {formatDate(new Date(item.timestamp))}
+        </div>
+
+        <div
+          className={`w-12 h-12 rounded-full ${colors.bg} ${colors.border} border-3 flex items-center justify-center text-xl shadow-md z-10 transition-transform group-hover/card:scale-110`}
+        >
+          <span className="drop-shadow">{emoji}</span>
+        </div>
+
+        <div
+          onClick={onToggle}
+          className={`mt-3 w-full rounded-2xl border-2 ${colors.bg} ${colors.border} p-3 cursor-pointer transition-all duration-200 hover:shadow-soft hover:-translate-y-1`}
+        >
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <span className={`tag bg-white ${colors.text} border ${colors.border} !text-[10px] font-semibold`}>
+              {TIMELINE_KIND_LABELS[item.kind]}
+            </span>
+            <span className="text-[10px] text-forest-400 flex items-center gap-0.5">
+              <Clock size={9} />
+              {formatDateTime(new Date(item.timestamp)).split(" ")[1] || ""}
+            </span>
+          </div>
+
+          {renderCompactContent()}
+
+          <div className="mt-3 pt-2 border-t border-dashed border-current/10">
+            <div className="flex items-center justify-between">
+              <Link
+                to={
+                  item.record.kind === "care"
+                    ? `/care-logs/${item.record.data.id}/edit?plantId=${plantId}`
+                    : item.record.kind === "leaf"
+                    ? `/leaves/${item.record.data.id}/edit?plantId=${plantId}`
+                    : `/pests/${item.record.data.id}/edit?plantId=${plantId}`
+                }
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] text-forest-500 hover:text-forest-700 flex items-center gap-0.5"
+              >
+                <Edit2 size={9} /> 编辑
+              </Link>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="text-[10px] text-forest-300 hover:text-red-500 flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity"
+              >
+                <Trash2 size={9} /> 删除
+              </button>
+              <span className="text-[10px] text-forest-400 flex items-center gap-0.5">
+                详情
+                <ChevronDown size={10} className={isExpanded ? "rotate-180" : ""} />
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
