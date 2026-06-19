@@ -1,16 +1,24 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, Link, useSearchParams, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Thermometer, Droplets, Sun, MapPin } from "lucide-react";
 import { useAppStore } from "@/store";
 import { ENVIRONMENT_FIELD_UNITS } from "@/types";
 import { today } from "@/utils/format";
 
 export function EnvironmentForm() {
+  const { id: editId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const plants = useAppStore((s) => s.plants);
   const getEnvironmentLocations = useAppStore((s) => s.getEnvironmentLocations);
   const addEnvironmentRecord = useAppStore((s) => s.addEnvironmentRecord);
+  const updateEnvironmentRecord = useAppStore((s) => s.updateEnvironmentRecord);
+  const environmentRecords = useAppStore((s) => s.environmentRecords);
+
+  const isEditing = Boolean(editId);
+  const existingRecord = editId
+    ? environmentRecords.find((r) => r.id === editId)
+    : undefined;
 
   const presetLocation = searchParams.get("location") || "";
   const existingLocations = getEnvironmentLocations();
@@ -19,21 +27,21 @@ export function EnvironmentForm() {
   );
 
   const [form, setForm] = useState({
-    location: presetLocation || plantLocations[0] || existingLocations[0] || "",
+    location: existingRecord?.location || presetLocation || plantLocations[0] || existingLocations[0] || "",
     locationInput: "",
     isNewLocation: false,
-    date: today(),
-    temperature: "",
-    humidity: "",
-    light: "",
-    notes: "",
+    date: existingRecord?.date || today(),
+    temperature: existingRecord?.temperature?.toString() || "",
+    humidity: existingRecord?.humidity?.toString() || "",
+    light: existingRecord?.light?.toString() || "",
+    notes: existingRecord?.notes || "",
   });
 
   useEffect(() => {
-    if (!form.location && plantLocations[0]) {
+    if (!isEditing && !form.location && plantLocations[0]) {
       setForm((f) => ({ ...f, location: plantLocations[0] }));
     }
-  }, [plantLocations, form.location]);
+  }, [plantLocations, form.location, isEditing]);
 
   const allLocationOptions = Array.from(
     new Set([...plantLocations, ...existingLocations])
@@ -50,14 +58,19 @@ export function EnvironmentForm() {
       alert("请填写温度、湿度和光照数据");
       return;
     }
-    addEnvironmentRecord({
+    const recordData = {
       location: finalLocation,
       date: form.date,
       temperature: Number(form.temperature),
       humidity: Number(form.humidity),
       light: Number(form.light),
       notes: form.notes,
-    });
+    };
+    if (isEditing && editId) {
+      updateEnvironmentRecord(editId, recordData);
+    } else {
+      addEnvironmentRecord(recordData);
+    }
     navigate(`/environment?location=${encodeURIComponent(finalLocation)}`);
   };
 
@@ -74,8 +87,8 @@ export function EnvironmentForm() {
           <ArrowLeft size={20} />
         </Link>
         <div>
-          <h1 className="page-title mb-0">🌡️ 记录环境</h1>
-          <p className="page-subtitle">记录植物生长位置的温湿度与光照数据</p>
+          <h1 className="page-title mb-0">{isEditing ? "✏️ 编辑环境记录" : "🌡️ 记录环境"}</h1>
+          <p className="page-subtitle">{isEditing ? "修改已记录的温湿度与光照数据" : "记录植物生长位置的温湿度与光照数据"}</p>
         </div>
       </div>
 
@@ -226,7 +239,7 @@ export function EnvironmentForm() {
           </Link>
           <button type="submit" className="btn-primary">
             <Save size={18} />
-            保存记录
+            {isEditing ? "更新记录" : "保存记录"}
           </button>
         </div>
       </form>

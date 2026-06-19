@@ -37,6 +37,7 @@ const router = createBrowserRouter([
       { path: "pests/new", element: <PestForm /> },
       { path: "environment", element: <Environment /> },
       { path: "environment/new", element: <EnvironmentForm /> },
+      { path: "environment/:id/edit", element: <EnvironmentForm /> },
       { path: "data", element: <DataCenter /> },
     ],
   },

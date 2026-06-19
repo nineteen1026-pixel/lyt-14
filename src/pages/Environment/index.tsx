@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Plus, Filter, Thermometer, Droplets, Sun, MapPin } from "lucide-react";
+import { Plus, Filter, Thermometer, Droplets, Sun, MapPin, Edit2 } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -9,7 +9,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
   ComposedChart,
   Bar,
 } from "recharts";
@@ -47,6 +46,24 @@ export function Environment() {
       location: r.location,
     }));
   }, [filtered]);
+
+  const chartDataByLocation = useMemo(() => {
+    const map = new Map<string, typeof chartData>();
+    environmentRecords
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .forEach((r) => {
+        const list = map.get(r.location) || [];
+        list.push({
+          date: r.date.slice(5),
+          temperature: r.temperature,
+          humidity: r.humidity,
+          light: r.light,
+          location: r.location,
+        });
+        map.set(r.location, list);
+      });
+    return map;
+  }, [environmentRecords]);
 
   const stats = useMemo(() => {
     if (filtered.length === 0)
@@ -232,215 +249,85 @@ export function Environment() {
 
       {viewMode === "chart" && chartData.length > 0 && (
         <div className="space-y-5">
-          <div className="card p-5">
-            <h3 className="font-bold text-forest-900 font-serif mb-4 flex items-center gap-2">
-              <Thermometer size={18} className="text-red-400" />
-              温度趋势
-            </h3>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#e2efd7"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11, fill: "#517c39" }}
-                    axisLine={{ stroke: "#c5dfb1" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#517c39" }}
-                    axisLine={false}
-                    tickLine={false}
-                    unit="°C"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "white",
-                      border: "1px solid #c5dfb1",
-                      borderRadius: "12px",
-                      fontSize: "13px",
-                    }}
-                    formatter={(v: number) => [`${v}°C`, "温度"]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="temperature"
-                    stroke="#f87171"
-                    strokeWidth={2.5}
-                    dot={{ r: 3 }}
-                    name="温度"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          {(locationFilter === "全部"
+            ? locations
+            : [locationFilter]
+          ).map((loc) => {
+            const locData =
+              locationFilter === "全部"
+                ? (chartDataByLocation.get(loc) || []).slice(-14)
+                : chartData;
+            if (locData.length === 0) return null;
+            return (
+              <div key={loc} className="card p-5">
+                <h3 className="font-bold text-forest-900 font-serif mb-4 flex items-center gap-2">
+                  <MapPin size={16} className="text-forest-500" />
+                  {loc}
+                  {locationFilter === "全部" && (
+                    <span className="text-xs font-normal text-forest-400 ml-1">
+                      ({locData.length} 天)
+                    </span>
+                  )}
+                </h3>
 
-          <div className="card p-5">
-            <h3 className="font-bold text-forest-900 font-serif mb-4 flex items-center gap-2">
-              <Droplets size={18} className="text-sky-400" />
-              湿度趋势
-            </h3>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#e2efd7"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11, fill: "#517c39" }}
-                    axisLine={{ stroke: "#c5dfb1" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#517c39" }}
-                    axisLine={false}
-                    tickLine={false}
-                    unit="%"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "white",
-                      border: "1px solid #c5dfb1",
-                      borderRadius: "12px",
-                      fontSize: "13px",
-                    }}
-                    formatter={(v: number) => [`${v}%`, "湿度"]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="humidity"
-                    stroke="#60a5fa"
-                    strokeWidth={2.5}
-                    dot={{ r: 3 }}
-                    name="湿度"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <div>
+                    <h4 className="text-sm font-medium text-forest-700 mb-2 flex items-center gap-1.5">
+                      <Thermometer size={14} className="text-red-400" />
+                      温度趋势
+                    </h4>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={locData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2efd7" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#517c39" }} axisLine={{ stroke: "#c5dfb1" }} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "#517c39" }} axisLine={false} tickLine={false} unit="°C" />
+                          <Tooltip contentStyle={{ background: "white", border: "1px solid #c5dfb1", borderRadius: "12px", fontSize: "13px" }} formatter={(v: number) => [`${v}°C`, "温度"]} />
+                          <Line type="monotone" dataKey="temperature" stroke="#f87171" strokeWidth={2} dot={{ r: 2 }} name="温度" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
 
-          <div className="card p-5">
-            <h3 className="font-bold text-forest-900 font-serif mb-4 flex items-center gap-2">
-              <Sun size={18} className="text-amber-400" />
-              光照强度
-            </h3>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  data={chartData}
-                  margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#e2efd7"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11, fill: "#517c39" }}
-                    axisLine={{ stroke: "#c5dfb1" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#517c39" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "white",
-                      border: "1px solid #c5dfb1",
-                      borderRadius: "12px",
-                      fontSize: "13px",
-                    }}
-                    formatter={(v: number) => [`${v.toLocaleString()} lux`, "光照"]}
-                  />
-                  <Bar dataKey="light" fill="#fbbf24" radius={[4, 4, 0, 0]} name="光照" />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-forest-700 mb-2 flex items-center gap-1.5">
+                      <Droplets size={14} className="text-sky-400" />
+                      湿度趋势
+                    </h4>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={locData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2efd7" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#517c39" }} axisLine={{ stroke: "#c5dfb1" }} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "#517c39" }} axisLine={false} tickLine={false} unit="%" />
+                          <Tooltip contentStyle={{ background: "white", border: "1px solid #c5dfb1", borderRadius: "12px", fontSize: "13px" }} formatter={(v: number) => [`${v}%`, "湿度"]} />
+                          <Line type="monotone" dataKey="humidity" stroke="#60a5fa" strokeWidth={2} dot={{ r: 2 }} name="湿度" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
 
-          {locationFilter === "全部" && locations.length > 1 && (
-            <div className="card p-5">
-              <h3 className="font-bold text-forest-900 font-serif mb-4">
-                📊 多位置对比
-              </h3>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={chartData}
-                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#e2efd7"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 11, fill: "#517c39" }}
-                      axisLine={{ stroke: "#c5dfb1" }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: "#517c39" }}
-                      axisLine={false}
-                      tickLine={false}
-                      unit="°C"
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "white",
-                        border: "1px solid #c5dfb1",
-                        borderRadius: "12px",
-                        fontSize: "13px",
-                      }}
-                      formatter={(v: number) => [`${v}°C`, "温度"]}
-                    />
-                    <Legend />
-                    {locations.map((loc, idx) => {
-                      const colors = [
-                        "#f87171",
-                        "#60a5fa",
-                        "#8CB369",
-                        "#fbbf24",
-                        "#a78bfa",
-                        "#fb7185",
-                      ];
-                      const locData = chartData.filter((d) => d.location === loc);
-                      if (locData.length === 0) return null;
-                      return (
-                        <Line
-                          key={loc}
-                          type="monotone"
-                          data={locData}
-                          dataKey="temperature"
-                          stroke={colors[idx % colors.length]}
-                          strokeWidth={2}
-                          dot={{ r: 2 }}
-                          name={loc}
-                        />
-                      );
-                    })}
-                  </LineChart>
-                </ResponsiveContainer>
+                  <div>
+                    <h4 className="text-sm font-medium text-forest-700 mb-2 flex items-center gap-1.5">
+                      <Sun size={14} className="text-amber-400" />
+                      光照强度
+                    </h4>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={locData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2efd7" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#517c39" }} axisLine={{ stroke: "#c5dfb1" }} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "#517c39" }} axisLine={false} tickLine={false} />
+                          <Tooltip contentStyle={{ background: "white", border: "1px solid #c5dfb1", borderRadius: "12px", fontSize: "13px" }} formatter={(v: number) => [`${v.toLocaleString()} lux`, "光照"]} />
+                          <Bar dataKey="light" fill="#fbbf24" radius={[3, 3, 0, 0]} name="光照" />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
 
@@ -504,6 +391,12 @@ export function Environment() {
                     {getRelativeTime(record.date)}
                   </p>
                 </div>
+                <Link
+                  to={`/environment/${record.id}/edit`}
+                  className="p-2 rounded-lg hover:bg-forest-50 text-forest-400 hover:text-forest-600 transition-colors"
+                >
+                  <Edit2 size={14} />
+                </Link>
                 <button
                   onClick={() => handleDelete(record.id)}
                   className="p-2 rounded-lg hover:bg-red-50 text-forest-400 hover:text-red-500 transition-colors"

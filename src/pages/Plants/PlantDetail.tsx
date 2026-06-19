@@ -115,6 +115,7 @@ export function PlantDetail() {
         light: number | null;
         watering: number;
         fertilizing: number;
+        lighting: number;
         wateringAmount: number;
       }
     >();
@@ -127,6 +128,7 @@ export function PlantDetail() {
         light: r.light,
         watering: 0,
         fertilizing: 0,
+        lighting: 0,
         wateringAmount: 0,
       });
     });
@@ -139,6 +141,8 @@ export function PlantDetail() {
           existing.wateringAmount += log.amount || 0;
         } else if (log.type === "fertilizing") {
           existing.fertilizing += 1;
+        } else if (log.type === "lighting") {
+          existing.lighting += 1;
         }
       } else {
         dateMap.set(log.date, {
@@ -148,6 +152,7 @@ export function PlantDetail() {
           light: null,
           watering: log.type === "watering" ? 1 : 0,
           fertilizing: log.type === "fertilizing" ? 1 : 0,
+          lighting: log.type === "lighting" ? 1 : 0,
           wateringAmount: log.type === "watering" ? log.amount || 0 : 0,
         });
       }
@@ -413,56 +418,75 @@ export function PlantDetail() {
         </div>
       )}
 
-      {environmentRecords.length > 0 && (
-        <div className="space-y-5">
-          <div className="card p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-forest-900 font-serif flex items-center gap-2">
-                  <Thermometer size={18} className="text-red-400" />
-                  环境与养护趋势对比分析
-                </h3>
-                <p className="text-sm text-forest-500 mt-1">
-                  基于位置「{plant.location}」的近14天环境数据与养护记录叠加分析
-                </p>
-              </div>
+      {plant.location && (
+        <div className="card p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-forest-900 font-serif flex items-center gap-2">
+                <Thermometer size={18} className="text-red-400" />
+                环境与养护趋势对比分析
+              </h3>
+              <p className="text-sm text-forest-500 mt-1">
+                基于位置「{plant.location}」的近14天环境数据与养护记录叠加分析
+              </p>
+            </div>
+            <Link
+              to={`/environment?location=${encodeURIComponent(plant.location)}`}
+              className="text-sm text-forest-600 hover:text-forest-800 underline underline-offset-2"
+            >
+              查看完整环境数据 →
+            </Link>
+          </div>
+
+          {environmentRecords.length === 0 ? (
+            <div className="text-center py-10 px-4">
+              <div className="text-5xl mb-3">🌡️</div>
+              <h4 className="font-bold text-forest-800 mb-2 font-serif">暂无环境监测数据</h4>
+              <p className="text-sm text-forest-500 mb-5">
+                为「{plant.location}」记录温湿度与光照数据后，即可在此查看环境与养护趋势的对比分析
+              </p>
               <Link
-                to={`/environment?location=${encodeURIComponent(plant.location || "")}`}
-                className="text-sm text-forest-600 hover:text-forest-800 underline underline-offset-2"
+                to={{
+                  pathname: "/environment/new",
+                  search: `?location=${encodeURIComponent(plant.location)}`,
+                }}
+                className="btn-primary"
               >
-                查看完整环境数据 →
+                <Thermometer size={16} />
+                开始记录环境数据
               </Link>
             </div>
-
-            <div className="grid grid-cols-3 gap-4 mb-5">
-              <div className="text-center p-3 bg-red-50 rounded-xl">
-                <div className="text-xl font-bold text-red-500">
-                  {envStats.avgTemp}
-                  <span className="text-xs font-normal text-red-400 ml-1">
-                    {ENVIRONMENT_FIELD_UNITS.temperature}
-                  </span>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-4 mb-5">
+                <div className="text-center p-3 bg-red-50 rounded-xl">
+                  <div className="text-xl font-bold text-red-500">
+                    {envStats.avgTemp}
+                    <span className="text-xs font-normal text-red-400 ml-1">
+                      {ENVIRONMENT_FIELD_UNITS.temperature}
+                    </span>
+                  </div>
+                  <div className="text-xs text-red-600 mt-0.5">平均温度</div>
                 </div>
-                <div className="text-xs text-red-600 mt-0.5">平均温度</div>
-              </div>
-              <div className="text-center p-3 bg-sky-50 rounded-xl">
-                <div className="text-xl font-bold text-sky-500">
-                  {envStats.avgHumidity}
-                  <span className="text-xs font-normal text-sky-400 ml-1">
-                    {ENVIRONMENT_FIELD_UNITS.humidity}
-                  </span>
+                <div className="text-center p-3 bg-sky-50 rounded-xl">
+                  <div className="text-xl font-bold text-sky-500">
+                    {envStats.avgHumidity}
+                    <span className="text-xs font-normal text-sky-400 ml-1">
+                      {ENVIRONMENT_FIELD_UNITS.humidity}
+                    </span>
+                  </div>
+                  <div className="text-xs text-sky-600 mt-0.5">平均湿度</div>
                 </div>
-                <div className="text-xs text-sky-600 mt-0.5">平均湿度</div>
-              </div>
-              <div className="text-center p-3 bg-amber-50 rounded-xl">
-                <div className="text-xl font-bold text-amber-500">
-                  {envStats.avgLight.toLocaleString()}
-                  <span className="text-xs font-normal text-amber-400 ml-1">
-                    {ENVIRONMENT_FIELD_UNITS.light}
-                  </span>
+                <div className="text-center p-3 bg-amber-50 rounded-xl">
+                  <div className="text-xl font-bold text-amber-500">
+                    {envStats.avgLight.toLocaleString()}
+                    <span className="text-xs font-normal text-amber-400 ml-1">
+                      {ENVIRONMENT_FIELD_UNITS.light}
+                    </span>
+                  </div>
+                  <div className="text-xs text-amber-600 mt-0.5">平均光照</div>
                 </div>
-                <div className="text-xs text-amber-600 mt-0.5">平均光照</div>
               </div>
-            </div>
 
             {combinedChartData.length > 0 && (
               <div className="space-y-6">
@@ -618,6 +642,79 @@ export function PlantDetail() {
                   </div>
                 </div>
 
+                <div>
+                  <h4 className="text-sm font-medium text-forest-700 mb-3 flex items-center gap-1.5">
+                    <Sun size={14} className="text-amber-500" />
+                    环境光照 vs 养护光照
+                  </h4>
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={combinedChartData}
+                        margin={{ top: 5, right: 20, left: -20, bottom: 0 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="#e2efd7"
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 11, fill: "#517c39" }}
+                          axisLine={{ stroke: "#c5dfb1" }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fontSize: 11, fill: "#f59e0b" }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fontSize: 11, fill: "#8B5CF6" }}
+                          axisLine={false}
+                          tickLine={false}
+                          allowDecimals={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "white",
+                            border: "1px solid #c5dfb1",
+                            borderRadius: "12px",
+                            fontSize: "13px",
+                          }}
+                          formatter={(v: number | null, n: string) => {
+                            if (v === null) return ["-", n];
+                            if (n === "light") return [`${v.toLocaleString()} lux`, "环境光照"];
+                            if (n === "lighting") return [`${v}次`, "养护光照"];
+                            return [v, n];
+                          }}
+                        />
+                        <Legend />
+                        <Area
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="light"
+                          fill="#fef3c7"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          name="环境光照"
+                          connectNulls
+                        />
+                        <Bar
+                          yAxisId="right"
+                          dataKey="lighting"
+                          fill="#8B5CF6"
+                          radius={[3, 3, 0, 0]}
+                          name="养护光照次数"
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
                 {combinedChartData.some((d) => d.fertilizing > 0) && (
                   <div>
                     <h4 className="text-sm font-medium text-forest-700 mb-3 flex items-center gap-1.5">
@@ -695,7 +792,8 @@ export function PlantDetail() {
                 )}
               </div>
             )}
-          </div>
+            </>
+          )}
         </div>
       )}
 
