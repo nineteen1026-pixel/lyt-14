@@ -1,13 +1,16 @@
 import { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Plus, Filter, Bug, CheckCircle, Clock } from "lucide-react";
+import { Plus, Filter, Bug, CheckCircle, Clock, AlertTriangle, ChevronRight } from "lucide-react";
 import { useAppStore } from "@/store";
 import {
   SEVERITY_LABELS,
   PEST_TYPE_LABELS,
   PEST_STATUS_LABELS,
+  RECURRENCE_RISK_LABELS,
 } from "@/types";
 import { formatDate, getRelativeTime } from "@/utils/format";
+import { getPestRecurrenceAlerts, getHighRiskRecurrenceCount } from "@/utils/helpers";
+import { PestRecurrenceAlert } from "@/components/PestRecurrenceAlert";
 
 export function Pests() {
   const [searchParams] = useSearchParams();
@@ -18,6 +21,20 @@ export function Pests() {
   const [statusFilter, setStatusFilter] = useState("全部");
   const [plantFilter, setPlantFilter] = useState(searchParams.get("plantId") || "全部");
   const [typeFilter, setTypeFilter] = useState("全部");
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
+
+  const recurrenceAlerts = useMemo(
+    () => getPestRecurrenceAlerts(plants, pestRecords),
+    [plants, pestRecords]
+  );
+
+  const highRiskCount = useMemo(
+    () => getHighRiskRecurrenceCount(plants, pestRecords),
+    [plants, pestRecords]
+  );
+
+  const hasAlerts = recurrenceAlerts.length > 0;
+  const displayAlerts = showAllAlerts ? recurrenceAlerts : recurrenceAlerts.slice(0, 3);
 
   const filtered = useMemo(() => {
     return pestRecords.filter((p) => {
@@ -59,7 +76,7 @@ export function Pests() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card p-4 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
             <Clock className="text-amber-500" size={24} />
@@ -78,7 +95,87 @@ export function Pests() {
             <p className="text-sm text-forest-500">已解决</p>
           </div>
         </div>
+        <div className="card p-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-forest-50 flex items-center justify-center">
+            <Bug className="text-forest-500" size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-forest-900 font-serif">{pestRecords.length}</p>
+            <p className="text-sm text-forest-500">总记录数</p>
+          </div>
+        </div>
+        <div className="card p-4 flex items-center gap-4">
+          <div
+            className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+              highRiskCount > 0 ? "bg-red-50" : "bg-emerald-50"
+            }`}
+          >
+            <AlertTriangle
+              className={highRiskCount > 0 ? "text-red-500" : "text-emerald-500"}
+              size={24}
+            />
+          </div>
+          <div>
+            <p
+              className={`text-2xl font-bold font-serif ${
+                highRiskCount > 0 ? "text-red-600" : "text-forest-900"
+              }`}
+            >
+              {highRiskCount}
+            </p>
+            <p className="text-sm text-forest-500">高风险复发</p>
+          </div>
+        </div>
       </div>
+
+      {hasAlerts && (
+        <div className="animate-fade-in-up">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="text-red-500" size={18} />
+              <h3 className="font-bold text-forest-900 font-serif">
+                ⚠️ 复发预警
+              </h3>
+              <span
+                className={`tag ${
+                  highRiskCount > 0
+                    ? "bg-red-100 text-red-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {recurrenceAlerts.length} 项
+              </span>
+            </div>
+            {recurrenceAlerts.length > 3 && (
+              <button
+                onClick={() => setShowAllAlerts(!showAllAlerts)}
+                className="text-sm text-forest-600 hover:text-forest-800 flex items-center gap-1"
+              >
+                {showAllAlerts ? "收起" : `查看全部 ${recurrenceAlerts.length} 项`}
+                <ChevronRight
+                  size={14}
+                  className={`transition-transform ${showAllAlerts ? "rotate-90" : ""}`}
+                />
+              </button>
+            )}
+          </div>
+          <div
+            className={`grid gap-4 ${
+              showAllAlerts
+                ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+                : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+            }`}
+          >
+            {displayAlerts.map((alert, i) => (
+              <PestRecurrenceAlert
+                key={alert.id}
+                alert={alert}
+                defaultExpanded={i === 0 && alert.riskLevel === "high"}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card p-4">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center gap-y-3">

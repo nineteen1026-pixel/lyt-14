@@ -478,16 +478,41 @@ const calculateAverageResolutionDays = (records: PestRecord[]): number => {
   return Math.round(totalDays / resolved.length);
 };
 
+const POST_RECOVERY_WARNING_DAYS = 30;
+
 const determineRiskLevel = (
   recurrenceCount: number,
   hasOngoing: boolean,
-  daysSinceLast: number
+  daysSinceLast: number,
+  daysSinceResolved: number | null
 ): RecurrenceRiskLevel => {
   if (hasOngoing && recurrenceCount > 0) return "high";
-  if (recurrenceCount >= 2 && daysSinceLast <= 30) return "high";
-  if (recurrenceCount >= 2) return "medium";
-  if (recurrenceCount === 1 && daysSinceLast <= 14) return "medium";
+  if (hasOngoing) return "medium";
+  if (
+    daysSinceResolved !== null &&
+    daysSinceResolved <= POST_RECOVERY_WARNING_DAYS &&
+    recurrenceCount > 0
+  ) {
+    if (recurrenceCount >= 2) return "medium";
+    return "low";
+  }
   return "low";
+};
+
+const shouldGenerateAlert = (
+  hasOngoing: boolean,
+  recurrenceCount: number,
+  daysSinceResolved: number | null
+): boolean => {
+  if (hasOngoing) return true;
+  if (
+    daysSinceResolved !== null &&
+    daysSinceResolved <= POST_RECOVERY_WARNING_DAYS &&
+    recurrenceCount > 0
+  ) {
+    return true;
+  }
+  return false;
 };
 
 export const getPestRecurrenceAlerts = (
@@ -519,15 +544,27 @@ export const getPestRecurrenceAlerts = (
       const ongoingRecord = sorted.find((r) => r.status === "ongoing");
       const historyRecords = sorted.filter((r) => r.status === "resolved");
       const recurrenceCount = historyRecords.length;
-      const lastOccurrence = sorted[0];
+
+      const latestRecord = sorted[0];
       const lastDate = ongoingRecord
         ? ongoingRecord.discoveredDate
-        : lastOccurrence.discoveredDate;
+        : latestRecord.discoveredDate;
       const daysSinceLast = daysBetween(lastDate, today());
+
+      let daysSinceResolved: number | null = null;
+      if (!ongoingRecord && latestRecord.status === "resolved" && latestRecord.resolvedDate) {
+        daysSinceResolved = daysBetween(latestRecord.resolvedDate, today());
+      }
+
+      if (!shouldGenerateAlert(!!ongoingRecord, recurrenceCount, daysSinceResolved)) {
+        return;
+      }
+
       const riskLevel = determineRiskLevel(
         recurrenceCount,
         !!ongoingRecord,
-        daysSinceLast
+        daysSinceLast,
+        daysSinceResolved
       );
       const recommendedTreatment = getEffectiveTreatment(sorted);
       const avgResolutionDays = calculateAverageResolutionDays(sorted);
