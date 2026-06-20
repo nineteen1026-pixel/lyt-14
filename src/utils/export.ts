@@ -5,6 +5,9 @@ import type {
   PestRecord,
   CareLogType,
   EnvironmentRecord,
+  ExpenseRecord,
+  ExpenseCategory,
+  PlantYearlyExpense,
 } from "@/types";
 
 export interface ExportData {
@@ -252,4 +255,99 @@ export const compressImage = (
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+};
+
+export const expenseRecordsToCSV = (
+  records: ExpenseRecord[],
+  plants: Plant[]
+): string => {
+  const plantMap = new Map(plants.map((p) => [p.id, p.name]));
+  const categoryLabels: Record<ExpenseCategory, string> = {
+    repotting: "换盆",
+    fertilizer: "肥料",
+    pest_control: "病虫害防治",
+    tools: "工具",
+    soil: "土壤",
+    pot: "花盆",
+    other: "其他",
+  };
+
+  const headers = [
+    "ID",
+    "植物",
+    "类别",
+    "金额(元)",
+    "日期",
+    "描述",
+    "备注",
+    "创建时间",
+  ];
+  const rows = records.map((r) => [
+    r.id,
+    plantMap.get(r.plantId) || "",
+    categoryLabels[r.category],
+    r.amount.toFixed(2),
+    r.date,
+    escapeCSV(r.description),
+    escapeCSV(r.notes),
+    r.createdAt,
+  ]);
+  return [headers, ...rows].map((r) => r.join(",")).join("\n");
+};
+
+export const yearlyExpensesToCSV = (
+  yearlyExpenses: PlantYearlyExpense[],
+  year: number
+): string => {
+  const categoryLabels: Record<ExpenseCategory, string> = {
+    repotting: "换盆",
+    fertilizer: "肥料",
+    pest_control: "病虫害防治",
+    tools: "工具",
+    soil: "土壤",
+    pot: "花盆",
+    other: "其他",
+  };
+
+  const headers = [
+    "植物",
+    "总支出(元)",
+    "记录数",
+    "换盆(元)",
+    "肥料(元)",
+    "病虫害防治(元)",
+    "工具(元)",
+    "土壤(元)",
+    "花盆(元)",
+    "其他(元)",
+  ];
+  const rows = yearlyExpenses.map((p) => [
+    p.plantName,
+    p.totalAmount.toFixed(2),
+    p.recordCount,
+    p.categoryBreakdown.repotting.toFixed(2),
+    p.categoryBreakdown.fertilizer.toFixed(2),
+    p.categoryBreakdown.pest_control.toFixed(2),
+    p.categoryBreakdown.tools.toFixed(2),
+    p.categoryBreakdown.soil.toFixed(2),
+    p.categoryBreakdown.pot.toFixed(2),
+    p.categoryBreakdown.other.toFixed(2),
+  ]);
+
+  const totalRow = [
+    "合计",
+    yearlyExpenses
+      .reduce((sum, p) => sum + p.totalAmount, 0)
+      .toFixed(2),
+    yearlyExpenses.reduce((sum, p) => sum + p.recordCount, 0),
+    yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.repotting, 0).toFixed(2),
+    yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.fertilizer, 0).toFixed(2),
+    yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.pest_control, 0).toFixed(2),
+    yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.tools, 0).toFixed(2),
+    yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.soil, 0).toFixed(2),
+    yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.pot, 0).toFixed(2),
+    yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.other, 0).toFixed(2),
+  ];
+
+  return [`${year}年度植物费用报表`, "", ...[headers, ...rows, totalRow].map((r) => r.join(","))].join("\n");
 };

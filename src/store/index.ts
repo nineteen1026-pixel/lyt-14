@@ -13,6 +13,10 @@ import type {
   SearchResults,
   SearchResultItem,
   SearchCategory,
+  ExpenseRecord,
+  ExpenseCategory,
+  PlantYearlyExpense,
+  CategoryExpenseSummary,
 } from "@/types";
 import {
   DEFAULT_CARE_PLANS,
@@ -22,6 +26,7 @@ import {
   LEAF_CURL_LABELS,
   PEST_TYPE_LABELS,
   SEARCH_CATEGORY_LABELS,
+  EXPENSE_CATEGORY_LABELS,
 } from "@/types";
 import { generateId, now, today, getDaysAgo } from "@/utils/format";
 import { generateCareTodos } from "@/utils/helpers";
@@ -331,6 +336,50 @@ const createMockEnvironmentRecords = (): EnvironmentRecord[] => {
 
 const MOCK_ENVIRONMENT_RECORDS = createMockEnvironmentRecords();
 
+const createMockExpenseRecords = (): ExpenseRecord[] => {
+  const records: ExpenseRecord[] = [];
+  const categories: ExpenseCategory[] = [
+    "repotting",
+    "fertilizer",
+    "pest_control",
+    "tools",
+    "soil",
+    "pot",
+    "other",
+  ];
+  const descriptions: Record<ExpenseCategory, string[]> = {
+    repotting: ["春季换盆", "换大盆", "根系修剪换盆"],
+    fertilizer: ["复合肥", "有机肥", "液肥", "缓释肥"],
+    pest_control: ["多菌灵", "百菌清", "杀虫剂", "蚜虫药"],
+    tools: ["园艺剪刀", "喷壶", "铲子", "手套"],
+    soil: ["营养土", "泥炭土", "珍珠岩", "蛭石"],
+    pot: ["陶瓷盆", "塑料盆", "红陶盆", "多肉盆"],
+    other: ["标签", "底托", "肥料盒", "其他用品"],
+  };
+
+  for (let i = 0; i < 20; i++) {
+    const date = getDaysAgo(i * 8 + Math.floor(Math.random() * 5));
+    const plantIndex = i % 4;
+    const category = categories[i % 7];
+    const descList = descriptions[category];
+    const description = descList[i % descList.length];
+
+    records.push({
+      id: `expense-${i}`,
+      plantId: `plant-${plantIndex + 1}`,
+      category,
+      amount: Math.round((20 + Math.random() * 180) * 100) / 100,
+      date,
+      description,
+      notes: i % 3 === 0 ? "网购" : i % 3 === 1 ? "花店购买" : "",
+      createdAt: `${date}T10:00:00Z`,
+    });
+  }
+  return records;
+};
+
+const MOCK_EXPENSE_RECORDS = createMockExpenseRecords();
+
 interface AppState {
   plants: Plant[];
   careLogs: CareLog[];
@@ -339,6 +388,7 @@ interface AppState {
   carePlans: CarePlan[];
   careTemplates: CareTemplate[];
   environmentRecords: EnvironmentRecord[];
+  expenseRecords: ExpenseRecord[];
 
   addPlant: (
     plant: Omit<Plant, "id" | "createdAt" | "updatedAt">
@@ -390,6 +440,14 @@ interface AppState {
   getEnvironmentRecordsByLocation: (location: string) => EnvironmentRecord[];
   getEnvironmentLocations: () => string[];
 
+  addExpenseRecord: (record: Omit<ExpenseRecord, "id" | "createdAt">) => void;
+  updateExpenseRecord: (id: string, data: Partial<ExpenseRecord>) => void;
+  deleteExpenseRecord: (id: string) => void;
+  getExpenseRecordsByPlant: (plantId: string) => ExpenseRecord[];
+  getPlantYearlyExpenses: (year: number) => PlantYearlyExpense[];
+  getCategoryExpenseSummary: (year?: number) => CategoryExpenseSummary[];
+  getExpenseYears: () => number[];
+
   getCareTodos: () => CareTodo[];
   getPendingTodoCount: () => number;
   completeTodoWithLog: (
@@ -415,6 +473,7 @@ export const useAppStore = create<AppState>()(
       carePlans: MOCK_CARE_PLANS,
       careTemplates: MOCK_CARE_TEMPLATES,
       environmentRecords: MOCK_ENVIRONMENT_RECORDS,
+      expenseRecords: MOCK_EXPENSE_RECORDS,
 
       addPlant: (plant) =>
         set((state) => ({
@@ -714,6 +773,101 @@ export const useAppStore = create<AppState>()(
         return Array.from(locations);
       },
 
+      addExpenseRecord: (record) =>
+        set((state) => ({
+          expenseRecords: [
+            { ...record, id: generateId(), createdAt: now() },
+            ...state.expenseRecords,
+          ],
+        })),
+
+      updateExpenseRecord: (id, data) =>
+        set((state) => ({
+          expenseRecords: state.expenseRecords.map((r) =>
+            r.id === id ? { ...r, ...data } : r
+          ),
+        })),
+
+      deleteExpenseRecord: (id) =>
+        set((state) => ({
+          expenseRecords: state.expenseRecords.filter((r) => r.id !== id),
+        })),
+
+      getExpenseRecordsByPlant: (plantId) =>
+        get()
+          .expenseRecords.filter((r) => r.plantId === plantId)
+          .sort((a, b) => b.date.localeCompare(a.date)),
+
+      getPlantYearlyExpenses: (year) => {
+        const { plants, expenseRecords } = get();
+        const yearStr = String(year);
+
+        return plants.map((plant) => {
+          const plantExpenses = expenseRecords.filter(
+            (r) => r.plantId === plant.id && r.date.startsWith(yearStr)
+          );
+
+          const categoryBreakdown = {} as Record<ExpenseCategory, number>;
+          (["repotting", "fertilizer", "pest_control", "tools", "soil", "pot", "other"] as ExpenseCategory[]).forEach(
+            (cat) => {
+              categoryBreakdown[cat] = 0;
+            }
+          );
+
+          let totalAmount = 0;
+          plantExpenses.forEach((r) => {
+            totalAmount += r.amount;
+            categoryBreakdown[r.category] += r.amount;
+          });
+
+          return {
+            plantId: plant.id,
+            plantName: plant.name,
+            plantAvatar: plant.avatar,
+            year,
+            totalAmount: Math.round(totalAmount * 100) / 100,
+            categoryBreakdown,
+            recordCount: plantExpenses.length,
+          };
+        });
+      },
+
+      getCategoryExpenseSummary: (year) => {
+        const { expenseRecords } = get();
+        const categories: ExpenseCategory[] = [
+          "repotting",
+          "fertilizer",
+          "pest_control",
+          "tools",
+          "soil",
+          "pot",
+          "other",
+        ];
+
+        const filtered = year
+          ? expenseRecords.filter((r) => r.date.startsWith(String(year)))
+          : expenseRecords;
+
+        const totalAmount = filtered.reduce((sum, r) => sum + r.amount, 0);
+
+        return categories.map((category) => {
+          const categoryRecords = filtered.filter((r) => r.category === category);
+          const catTotal = categoryRecords.reduce((sum, r) => sum + r.amount, 0);
+
+          return {
+            category,
+            totalAmount: Math.round(catTotal * 100) / 100,
+            recordCount: categoryRecords.length,
+            percentage: totalAmount > 0 ? Math.round((catTotal / totalAmount) * 10000) / 100 : 0,
+          };
+        });
+      },
+
+      getExpenseYears: () => {
+        const years = new Set(get().expenseRecords.map((r) => Number(r.date.slice(0, 4))));
+        return Array.from(years).sort((a, b) => b - a);
+      },
+
       getCareTodos: () => {
         const { plants, carePlans, careLogs } = get();
         return generateCareTodos(plants, carePlans, careLogs);
@@ -750,10 +904,10 @@ export const useAppStore = create<AppState>()(
       },
 
       exportData: () => {
-        const { plants, careLogs, leafRecords, pestRecords, carePlans, careTemplates, environmentRecords } = get();
+        const { plants, careLogs, leafRecords, pestRecords, carePlans, careTemplates, environmentRecords, expenseRecords } = get();
         return JSON.stringify(
           {
-            version: "1.0.0",
+            version: "1.1.0",
             exportedAt: now(),
             plants,
             careLogs,
@@ -762,6 +916,7 @@ export const useAppStore = create<AppState>()(
             carePlans,
             careTemplates,
             environmentRecords,
+            expenseRecords,
           },
           null,
           2
@@ -786,6 +941,7 @@ export const useAppStore = create<AppState>()(
               carePlans: data.carePlans || createInitialCarePlans(),
               careTemplates: data.careTemplates || createInitialCareTemplates(),
               environmentRecords: data.environmentRecords || [],
+              expenseRecords: data.expenseRecords || [],
             });
             return true;
           }
@@ -804,6 +960,7 @@ export const useAppStore = create<AppState>()(
           carePlans: [],
           careTemplates: [],
           environmentRecords: [],
+          expenseRecords: [],
         }),
 
       resetWithMockData: () =>
@@ -815,6 +972,7 @@ export const useAppStore = create<AppState>()(
           carePlans: MOCK_CARE_PLANS,
           careTemplates: MOCK_CARE_TEMPLATES,
           environmentRecords: MOCK_ENVIRONMENT_RECORDS,
+          expenseRecords: MOCK_EXPENSE_RECORDS,
         }),
 
       searchGlobal: (keyword) => {

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   Download,
   Upload,
@@ -10,7 +10,10 @@ import {
   HardDrive,
   CheckCircle2,
   AlertTriangle,
+  PieChart,
+  TrendingUp,
 } from "lucide-react";
+import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useAppStore } from "@/store";
 import {
   downloadJSON,
@@ -19,7 +22,14 @@ import {
   careLogsToCSV,
   pestsToCSV,
   environmentRecordsToCSV,
+  expenseRecordsToCSV,
+  yearlyExpensesToCSV,
 } from "@/utils/export";
+import {
+  EXPENSE_CATEGORY_LABELS,
+  EXPENSE_CATEGORY_ICONS,
+  EXPENSE_CATEGORY_COLORS,
+} from "@/types";
 import { formatDateTime } from "@/utils/format";
 
 export function DataCenter() {
@@ -28,10 +38,14 @@ export function DataCenter() {
   const leafRecords = useAppStore((s) => s.leafRecords);
   const pestRecords = useAppStore((s) => s.pestRecords);
   const environmentRecords = useAppStore((s) => s.environmentRecords);
+  const expenseRecords = useAppStore((s) => s.expenseRecords);
   const exportData = useAppStore((s) => s.exportData);
   const importData = useAppStore((s) => s.importData);
   const clearAllData = useAppStore((s) => s.clearAllData);
   const resetWithMockData = useAppStore((s) => s.resetWithMockData);
+  const getCategoryExpenseSummary = useAppStore((s) => s.getCategoryExpenseSummary);
+  const getPlantYearlyExpenses = useAppStore((s) => s.getPlantYearlyExpenses);
+  const getExpenseYears = useAppStore((s) => s.getExpenseYears);
 
   const [importMessage, setImportMessage] = useState<{
     type: "success" | "error";
@@ -39,8 +53,41 @@ export function DataCenter() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+
+  const expenseYears = useMemo(() => getExpenseYears(), [getExpenseYears]);
+  const categorySummary = useMemo(
+    () => getCategoryExpenseSummary(selectedYear),
+    [getCategoryExpenseSummary, selectedYear]
+  );
+  const yearlyExpenses = useMemo(
+    () => getPlantYearlyExpenses(selectedYear),
+    [getPlantYearlyExpenses, selectedYear]
+  );
+
+  const totalExpense = useMemo(
+    () => categorySummary.reduce((sum, c) => sum + c.totalAmount, 0),
+    [categorySummary]
+  );
+
+  const pieChartData = useMemo(() => {
+    return categorySummary
+      .filter((c) => c.totalAmount > 0)
+      .map((c) => ({
+        name: EXPENSE_CATEGORY_LABELS[c.category],
+        value: c.totalAmount,
+        color: EXPENSE_CATEGORY_COLORS[c.category].chart,
+      }));
+  }, [categorySummary]);
+
   const totalRecords =
-    plants.length + careLogs.length + leafRecords.length + pestRecords.length + environmentRecords.length;
+    plants.length +
+    careLogs.length +
+    leafRecords.length +
+    pestRecords.length +
+    environmentRecords.length +
+    expenseRecords.length;
 
   const handleExportJSON = () => {
     const json = exportData();
@@ -99,6 +146,20 @@ export function DataCenter() {
     );
   };
 
+  const handleExportExpenseCSV = () => {
+    downloadCSV(
+      expenseRecordsToCSV(expenseRecords, plants),
+      `expense-records-${formatDateTime(new Date()).replace(/[: ]/g, "-")}.csv`
+    );
+  };
+
+  const handleExportYearlyExpenseCSV = () => {
+    downloadCSV(
+      yearlyExpensesToCSV(yearlyExpenses, selectedYear),
+      `yearly-expenses-${selectedYear}-${formatDateTime(new Date()).replace(/[: ]/g, "-")}.csv`
+    );
+  };
+
   const handleClearData = () => {
     if (confirm("确定清空所有数据吗？此操作不可撤销！")) {
       if (confirm("再次确认：真的要删除所有植物、日志和记录吗？")) {
@@ -119,6 +180,7 @@ export function DataCenter() {
     { label: "叶片记录", value: leafRecords.length, icon: "🍃", color: "from-emerald-400 to-emerald-600" },
     { label: "病虫害", value: pestRecords.length, icon: "🐛", color: "from-amber-400 to-amber-600" },
     { label: "环境监测", value: environmentRecords.length, icon: "🌡️", color: "from-rose-400 to-rose-600" },
+    { label: "费用记录", value: expenseRecords.length, icon: "💰", color: "from-purple-400 to-purple-600" },
   ];
 
   return (
@@ -138,7 +200,7 @@ export function DataCenter() {
             <p className="text-sm text-forest-500">共 {totalRecords} 条数据记录</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {stats.map((s, i) => (
             <div
               key={s.label}
@@ -279,8 +341,230 @@ export function DataCenter() {
               </div>
               <Download size={16} className="text-rose-500" />
             </button>
+            <button
+              onClick={handleExportExpenseCSV}
+              disabled={expenseRecords.length === 0}
+              className="w-full flex items-center gap-3 p-4 rounded-xl bg-purple-50 hover:bg-purple-100 transition-all border border-purple-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="text-xl">💰</span>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-forest-800">费用记录</p>
+                <p className="text-xs text-forest-500">{expenseRecords.length} 条记录</p>
+              </div>
+              <Download size={16} className="text-purple-500" />
+            </button>
           </div>
         </div>
+      </div>
+
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+              <PieChart className="text-purple-600" size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-forest-900 font-serif">分类费用报表</h3>
+              <p className="text-sm text-forest-500">按类别统计费用支出分布</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="select-field w-auto"
+            >
+              {expenseYears.length > 0 ? (
+                expenseYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}年
+                  </option>
+                ))
+              ) : (
+                <option value={currentYear}>{currentYear}年</option>
+              )}
+            </select>
+            <button
+              onClick={handleExportYearlyExpenseCSV}
+              disabled={totalExpense === 0}
+              className="btn-secondary text-sm py-2"
+            >
+              <Download size={14} />
+              导出报表
+            </button>
+          </div>
+        </div>
+
+        <div className="text-center mb-6">
+          <p className="text-sm text-forest-500">{selectedYear}年总支出</p>
+          <p className="text-4xl font-bold text-rose-600 font-serif">
+            ¥{totalExpense.toFixed(2)}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-64">
+            {pieChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPie>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [`¥${value.toFixed(2)}`, "金额"]}
+                  />
+                </RechartsPie>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-forest-400">
+                暂无费用数据
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {categorySummary.map((item, i) => {
+              const colors = EXPENSE_CATEGORY_COLORS[item.category];
+              return (
+                <div
+                  key={item.category}
+                  className={`p-3 rounded-xl ${colors.bg} ${colors.border} border animate-fade-in-up opacity-0 stagger-${Math.min(i + 1, 6)}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">
+                        {EXPENSE_CATEGORY_ICONS[item.category]}
+                      </span>
+                      <span className={`text-sm font-medium ${colors.text}`}>
+                        {EXPENSE_CATEGORY_LABELS[item.category]}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-forest-800">
+                        ¥{item.totalAmount.toFixed(2)}
+                      </span>
+                      <span className="text-xs text-forest-500 ml-2">
+                        {item.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full h-2 bg-white/50 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${item.percentage}%`,
+                        backgroundColor: colors.chart,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-forest-500 mt-2">
+                    {item.recordCount} 笔记录
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <TrendingUp className="text-emerald-600" size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-forest-900 font-serif">年度开支排行</h3>
+            <p className="text-sm text-forest-500">
+              {selectedYear}年每株植物开支统计
+            </p>
+          </div>
+        </div>
+
+        {yearlyExpenses.filter((p) => p.recordCount > 0).length > 0 ? (
+          <div className="space-y-3">
+            {[...yearlyExpenses]
+              .filter((p) => p.recordCount > 0)
+              .sort((a, b) => b.totalAmount - a.totalAmount)
+              .map((plantExpense, i) => {
+                const maxAmount = Math.max(
+                  ...yearlyExpenses.map((p) => p.totalAmount)
+                );
+                const percentage =
+                  maxAmount > 0
+                    ? (plantExpense.totalAmount / maxAmount) * 100
+                    : 0;
+                return (
+                  <div
+                    key={plantExpense.plantId}
+                    className="p-4 rounded-xl bg-forest-50 border border-forest-100 animate-fade-in-up opacity-0"
+                    style={{ animationDelay: `${i * 50}ms` }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-xl">
+                          {plantExpense.plantAvatar}
+                        </div>
+                        <div>
+                          <p className="font-medium text-forest-800">
+                            {plantExpense.plantName}
+                          </p>
+                          <p className="text-xs text-forest-500">
+                            {plantExpense.recordCount} 笔记录
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-rose-600 font-serif">
+                          ¥{plantExpense.totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-white rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-forest-400 to-emerald-500 rounded-full transition-all duration-700"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {(
+                        Object.keys(plantExpense.categoryBreakdown) as Array<
+                          keyof typeof plantExpense.categoryBreakdown
+                        >
+                      )
+                        .filter((cat) => plantExpense.categoryBreakdown[cat] > 0)
+                        .map((cat) => {
+                          const colors = EXPENSE_CATEGORY_COLORS[cat];
+                          return (
+                            <span
+                              key={cat}
+                              className={`text-xs px-2 py-1 rounded-md ${colors.bg} ${colors.text}`}
+                            >
+                              {EXPENSE_CATEGORY_ICONS[cat]}{" "}
+                              {EXPENSE_CATEGORY_LABELS[cat]}: ¥
+                              {plantExpense.categoryBreakdown[cat].toFixed(2)}
+                            </span>
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-forest-400">
+            <p>{selectedYear}年暂无费用记录</p>
+          </div>
+        )}
       </div>
 
       <div className="card p-6 border-red-100">

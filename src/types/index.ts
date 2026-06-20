@@ -606,3 +606,70 @@ export interface SearchResults {
   pest: SearchResultItem[];
   total: number;
 }
+
+export type ExpenseCategory =
+  | "repotting"
+  | "fertilizer"
+  | "pest_control"
+  | "tools"
+  | "soil"
+  | "pot"
+  | "other";
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  repotting: "换盆",
+  fertilizer: "肥料",
+  pest_control: "病虫害防治",
+  tools: "工具",
+  soil: "土壤",
+  pot: "花盆",
+  other: "其他",
+};
+
+export const EXPENSE_CATEGORY_ICONS: Record<ExpenseCategory, string> = {
+  repotting: "🪴",
+  fertilizer: "🌾",
+  pest_control: "🐛",
+  tools: "🛠️",
+  soil: "🟫",
+  pot: "🏺",
+  other: "📦",
+};
+
+export const EXPENSE_CATEGORY_COLORS: Record<ExpenseCategory, { bg: string; text: string; border: string; chart: string }> = {
+  repotting: { bg: "bg-forest-100", text: "text-forest-700", border: "border-forest-200", chart: "#10b981" },
+  fertilizer: { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-200", chart: "#f59e0b" },
+  pest_control: { bg: "bg-red-100", text: "text-red-700", border: "border-red-200", chart: "#ef4444" },
+  tools: { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-200", chart: "#64748b" },
+  soil: { bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200", chart: "#f97316" },
+  pot: { bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-200", chart: "#f43f5e" },
+  other: { bg: "bg-sky-100", text: "text-sky-700", border: "border-sky-200", chart: "#0ea5e9" },
+};
+
+export interface ExpenseRecord {
+  id: string;
+  plantId: string;
+  category: ExpenseCategory;
+  amount: number;
+  date: string;
+  description: string;
+  notes: string;
+  createdAt: string;
+}
+
+export interface PlantYearlyExpense {
+  plantId: string;
+  plantName: string;
+  plantAvatar: string;
+  year: number;
+  totalAmount: number;
+  categoryBreakdown: Record<ExpenseCategory, number>;
+  recordCount: number;
+}
+
+export interface CategoryExpenseSummary {
+  category: ExpenseCategory;
+  totalAmount: number;
+  recordCount: number;
+  percentage: number;
+}

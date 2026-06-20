@@ -18,6 +18,8 @@ import { CareTemplateForm } from "@/pages/CareTemplates/CareTemplateForm";
 import { Environment } from "@/pages/Environment";
 import { EnvironmentForm } from "@/pages/Environment/EnvironmentForm";
 import { PlantCompare } from "@/pages/PlantCompare";
+import { Expenses } from "@/pages/Expenses";
+import { ExpenseForm } from "@/pages/Expenses/ExpenseForm";
 
 const router = createBrowserRouter([
   {
@@ -44,6 +46,8 @@ const router = createBrowserRouter([
       { path: "environment", element: <Environment /> },
       { path: "environment/new", element: <EnvironmentForm /> },
       { path: "environment/:id/edit", element: <EnvironmentForm /> },
+      { path: "expenses", element: <Expenses /> },
+      { path: "expenses/new", element: <ExpenseForm /> },
       { path: "data", element: <DataCenter /> },
       { path: "compare", element: <PlantCompare /> },
     ],
