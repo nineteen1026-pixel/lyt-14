@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   GitCompareArrows,
   Check,
@@ -72,10 +72,22 @@ export function PlantCompare() {
   const careLogs = useAppStore((s) => s.careLogs);
   const leafRecords = useAppStore((s) => s.leafRecords);
   const pestRecords = useAppStore((s) => s.pestRecords);
+  const [searchParams] = useSearchParams();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showSelector, setShowSelector] = useState(false);
   const [expandedPest, setExpandedPest] = useState<string | null>(null);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    const plantId = searchParams.get("plantId");
+    if (plantId && plants.some((p) => p.id === plantId)) {
+      setSelectedIds([plantId]);
+      setShowSelector(true);
+    }
+    initialized.current = true;
+  }, [searchParams, plants]);
 
   const togglePlant = (id: string) => {
     setSelectedIds((prev) =>
@@ -438,7 +450,7 @@ export function PlantCompare() {
                         <Link to={`/plants/${data.plant.id}`} className="font-bold text-forest-900 font-serif truncate hover:underline">{data.plant.name}</Link>
                         <p className="text-xs text-forest-500 truncate">{data.plant.category} · {data.plant.location}</p>
                       </div>
-                      <Link to={`/care-plans`} className="p-1.5 rounded-lg hover:bg-forest-50 text-forest-400 hover:text-forest-600 transition-colors" title="养护计划">
+                      <Link to={{ pathname: "/care-logs/new", search: `?plantId=${data.plant.id}` }} className="p-1.5 rounded-lg hover:bg-forest-50 text-forest-400 hover:text-forest-600 transition-colors" title="记录养护">
                         <CalendarClock size={14} />
                       </Link>
                     </div>

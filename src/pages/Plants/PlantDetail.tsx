@@ -13,6 +13,7 @@ import {
   Activity,
   Thermometer,
   Sun,
+  GitCompareArrows,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { formatDate } from "@/utils/format";
@@ -234,6 +235,10 @@ export function PlantDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link to={`/compare?plantId=${plant.id}`} className="btn-secondary">
+            <GitCompareArrows size={16} />
+            对比分析
+          </Link>
           <Link to={`/plants/${plant.id}/edit`} className="btn-secondary">
             <Edit2 size={16} />
             编辑
