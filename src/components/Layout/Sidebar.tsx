@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Thermometer,
   BookOpen,
+  GitCompareArrows,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { generateCareTodos } from "@/utils/helpers";
@@ -24,6 +25,7 @@ const navItems = [
   { path: "/care-logs", label: "养护日志", icon: Droplets, emoji: "💧", badge: null },
   { path: "/leaves", label: "叶片监测", icon: ImageIcon, emoji: "🍃", badge: null },
   { path: "/pests", label: "病虫害", icon: Bug, emoji: "🐛", badge: "pests" as const },
+  { path: "/compare", label: "对比分析", icon: GitCompareArrows, emoji: "🔬", badge: null },
   { path: "/data", label: "数据中心", icon: BarChart3, emoji: "📊", badge: null },
 ];
 
