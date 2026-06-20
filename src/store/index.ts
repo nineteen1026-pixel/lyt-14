@@ -10,8 +10,19 @@ import type {
   EnvironmentRecord,
   CareTemplate,
   PlantCategory,
+  SearchResults,
+  SearchResultItem,
+  SearchCategory,
 } from "@/types";
-import { DEFAULT_CARE_PLANS, PRESET_CARE_TEMPLATES } from "@/types";
+import {
+  DEFAULT_CARE_PLANS,
+  PRESET_CARE_TEMPLATES,
+  CARE_TYPE_LABELS,
+  LEAF_COLOR_LABELS,
+  LEAF_CURL_LABELS,
+  PEST_TYPE_LABELS,
+  SEARCH_CATEGORY_LABELS,
+} from "@/types";
 import { generateId, now, today, getDaysAgo } from "@/utils/format";
 import { generateCareTodos } from "@/utils/helpers";
 
@@ -390,6 +401,8 @@ interface AppState {
   importData: (json: string) => boolean;
   clearAllData: () => void;
   resetWithMockData: () => void;
+
+  searchGlobal: (keyword: string) => SearchResults;
 }
 
 export const useAppStore = create<AppState>()(
@@ -803,6 +816,176 @@ export const useAppStore = create<AppState>()(
           careTemplates: MOCK_CARE_TEMPLATES,
           environmentRecords: MOCK_ENVIRONMENT_RECORDS,
         }),
+
+      searchGlobal: (keyword) => {
+        const trimmed = keyword.trim().toLowerCase();
+        const empty: SearchResults = { plant: [], careLog: [], leaf: [], pest: [], total: 0 };
+
+        if (!trimmed) return empty;
+
+        const { plants, careLogs, leafRecords, pestRecords } = get();
+
+        const matchText = (text: string): boolean => {
+          if (!text) return false;
+          return text.toLowerCase().includes(trimmed);
+        };
+
+        const truncate = (text: string, maxLen = 80): string => {
+          if (!text) return "";
+          return text.length > maxLen ? text.slice(0, maxLen) + "..." : text;
+        };
+
+        const findPlantById = (id: string) => plants.find((p) => p.id === id);
+
+        const matched: SearchResults = {
+          plant: [],
+          careLog: [],
+          leaf: [],
+          pest: [],
+          total: 0,
+        };
+
+        plants.forEach((plant) => {
+          const matchedFields: string[] = [];
+          if (matchText(plant.name)) matchedFields.push("名称");
+          if (matchText(plant.species)) matchedFields.push("学名");
+          if (matchText(plant.category)) matchedFields.push("分类");
+          if (matchText(plant.location)) matchedFields.push("位置");
+          if (matchText(plant.notes)) matchedFields.push("备注");
+
+          if (matchedFields.length > 0) {
+            matched.plant.push({
+              id: plant.id,
+              category: "plant",
+              title: plant.name,
+              summary: truncate(
+                [plant.species, plant.category, plant.location, plant.notes].filter(Boolean).join(" · ")
+              ),
+              matchedFields,
+              plantId: plant.id,
+              plantName: plant.name,
+              plantAvatar: plant.avatar,
+              date: plant.plantedDate,
+              navigateTo: `/plants/${plant.id}`,
+            });
+          }
+        });
+
+        careLogs.forEach((log) => {
+          const plant = findPlantById(log.plantId);
+          if (!plant) return;
+
+          const matchedFields: string[] = [];
+          if (matchText(CARE_TYPE_LABELS[log.type])) matchedFields.push("类型");
+          if (log.amount !== undefined && matchText(String(log.amount))) matchedFields.push("用量");
+          if (matchText(log.fertilizerType || "")) matchedFields.push("肥料");
+          if (log.lightDuration !== undefined && matchText(String(log.lightDuration))) matchedFields.push("光照时长");
+          if (matchText(log.notes)) matchedFields.push("备注");
+          if (matchText(plant.name)) matchedFields.push("植物名称");
+          if (matchedFields.length === 0 && matchText(plant.species || "")) matchedFields.push("植物学名");
+
+          if (matchedFields.length > 0) {
+            let summaryParts: string[] = [];
+            if (log.type === "watering" && log.amount) summaryParts.push(`浇水 ${log.amount}ml`);
+            if (log.type === "fertilizing" && log.fertilizerType) summaryParts.push(`施肥 ${log.fertilizerType}`);
+            if (log.type === "lighting") summaryParts.push(`光照 ${log.lightDuration || "-"}小时`);
+            if (log.notes) summaryParts.push(log.notes);
+
+            matched.careLog.push({
+              id: log.id,
+              category: "careLog",
+              title: `${CARE_TYPE_LABELS[log.type]}记录`,
+              summary: truncate(summaryParts.join(" · ")),
+              matchedFields,
+              plantId: plant.id,
+              plantName: plant.name,
+              plantAvatar: plant.avatar,
+              date: log.date,
+              navigateTo: `/plants/${plant.id}`,
+            });
+          }
+        });
+
+        leafRecords.forEach((record) => {
+          const plant = findPlantById(record.plantId);
+          if (!plant) return;
+
+          const matchedFields: string[] = [];
+          if (matchText(LEAF_COLOR_LABELS[record.colorStatus])) matchedFields.push("颜色状态");
+          if (matchText(LEAF_CURL_LABELS[record.curlStatus])) matchedFields.push("卷曲状态");
+          if (matchText(record.notes)) matchedFields.push("备注");
+          if (matchText(plant.name)) matchedFields.push("植物名称");
+          if (matchedFields.length === 0 && matchText(plant.species || "")) matchedFields.push("植物学名");
+
+          record.spots.forEach((spot, idx) => {
+            if (matchText(spot.type) || matchText(spot.color) || matchText(spot.description)) {
+              matchedFields.push(`斑点${idx + 1}`);
+            }
+          });
+
+          if (record.newLeaves?.description && matchText(record.newLeaves.description)) {
+            matchedFields.push("新叶描述");
+          }
+          if (record.leafSize?.description && matchText(record.leafSize.description)) {
+            matchedFields.push("叶片大小描述");
+          }
+
+          if (matchedFields.length > 0) {
+            const summaryParts: string[] = [];
+            summaryParts.push(LEAF_COLOR_LABELS[record.colorStatus]);
+            if (record.spots.length > 0) summaryParts.push(`${record.spots.length}处斑点`);
+            if (record.notes) summaryParts.push(record.notes);
+
+            matched.leaf.push({
+              id: record.id,
+              category: "leaf",
+              title: "叶片观察记录",
+              summary: truncate(summaryParts.join(" · ")),
+              matchedFields,
+              plantId: plant.id,
+              plantName: plant.name,
+              plantAvatar: plant.avatar,
+              date: record.date,
+              navigateTo: `/plants/${plant.id}`,
+            });
+          }
+        });
+
+        pestRecords.forEach((record) => {
+          const plant = findPlantById(record.plantId);
+          if (!plant) return;
+
+          const matchedFields: string[] = [];
+          if (matchText(record.name)) matchedFields.push("名称");
+          if (matchText(PEST_TYPE_LABELS[record.type])) matchedFields.push("类型");
+          if (matchText(record.symptoms)) matchedFields.push("症状");
+          if (matchText(record.treatmentMethod)) matchedFields.push("防治方法");
+          if (matchText(record.treatmentEffect)) matchedFields.push("处理效果");
+          if (matchText(record.followUpNotes)) matchedFields.push("后续备注");
+          if (matchText(plant.name)) matchedFields.push("植物名称");
+          if (matchedFields.length === 0 && matchText(plant.species || "")) matchedFields.push("植物学名");
+
+          if (matchedFields.length > 0) {
+            matched.pest.push({
+              id: record.id,
+              category: "pest",
+              title: `${PEST_TYPE_LABELS[record.type]}：${record.name}`,
+              summary: truncate([record.symptoms, record.treatmentMethod].filter(Boolean).join(" · ")),
+              matchedFields,
+              plantId: plant.id,
+              plantName: plant.name,
+              plantAvatar: plant.avatar,
+              date: record.discoveredDate,
+              navigateTo: `/plants/${plant.id}`,
+            });
+          }
+        });
+
+        matched.total =
+          matched.plant.length + matched.careLog.length + matched.leaf.length + matched.pest.length;
+
+        return matched;
+      },
     }),
     {
       name: "plant-journal-storage",

@@ -562,3 +562,47 @@ export const CARE_TEMPLATE_CATEGORY_EMOJIS: Record<PlantCategory, string> = {
   蔬果植物: "🍅",
   其他: "🪴",
 };
+
+export type SearchCategory = "plant" | "careLog" | "leaf" | "pest";
+
+export const SEARCH_CATEGORY_LABELS: Record<SearchCategory, string> = {
+  plant: "植物",
+  careLog: "养护日志",
+  leaf: "叶片记录",
+  pest: "病虫害",
+};
+
+export const SEARCH_CATEGORY_EMOJIS: Record<SearchCategory, string> = {
+  plant: "🪴",
+  careLog: "💧",
+  leaf: "🍃",
+  pest: "🐛",
+};
+
+export const SEARCH_CATEGORY_COLORS: Record<SearchCategory, { bg: string; text: string; border: string }> = {
+  plant: { bg: "bg-forest-50", text: "text-forest-700", border: "border-forest-200" },
+  careLog: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200" },
+  leaf: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  pest: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+};
+
+export interface SearchResultItem {
+  id: string;
+  category: SearchCategory;
+  title: string;
+  summary: string;
+  matchedFields: string[];
+  plantId: string;
+  plantName: string;
+  plantAvatar: string;
+  date?: string;
+  navigateTo: string;
+}
+
+export interface SearchResults {
+  plant: SearchResultItem[];
+  careLog: SearchResultItem[];
+  leaf: SearchResultItem[];
+  pest: SearchResultItem[];
+  total: number;
+}
