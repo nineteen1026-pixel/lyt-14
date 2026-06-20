@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Filter, Edit2, Trash2, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Plus, Search, Filter, Edit2, Trash2, ChevronRight, ArrowUpDown, GitCompareArrows } from "lucide-react";
 import { useAppStore } from "@/store";
 import { PLANT_CATEGORIES } from "@/types";
 import {
@@ -98,10 +98,16 @@ export function Plants() {
           <h1 className="page-title">🪴 我的植物</h1>
           <p className="page-subtitle">共 {plants.length} 株植物正在养护中</p>
         </div>
-        <Link to="/plants/new" className="btn-primary">
-          <Plus size={18} />
-          添加植物
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/compare" className="btn-secondary">
+            <GitCompareArrows size={18} />
+            对比分析
+          </Link>
+          <Link to="/plants/new" className="btn-primary">
+            <Plus size={18} />
+            添加植物
+          </Link>
+        </div>
       </div>
 
       <div className="card p-4">

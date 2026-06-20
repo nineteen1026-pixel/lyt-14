@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   GitCompareArrows,
   Check,
@@ -15,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  CalendarClock,
+  ExternalLink,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -428,13 +431,16 @@ export function PlantCompare() {
                 return (
                   <div key={data.plant.id} className={`card p-5 border-l-4 ${color.border} animate-fade-in-up opacity-0`} style={{ borderLeftColor: color.main, animationDelay: `${i * 0.08}s` }}>
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: `${color.main}15` }}>
+                      <Link to={`/plants/${data.plant.id}`} className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform" style={{ backgroundColor: `${color.main}15` }}>
                         {data.plant.avatar}
-                      </div>
+                      </Link>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-forest-900 font-serif truncate">{data.plant.name}</p>
+                        <Link to={`/plants/${data.plant.id}`} className="font-bold text-forest-900 font-serif truncate hover:underline">{data.plant.name}</Link>
                         <p className="text-xs text-forest-500 truncate">{data.plant.category} · {data.plant.location}</p>
                       </div>
+                      <Link to={`/care-plans`} className="p-1.5 rounded-lg hover:bg-forest-50 text-forest-400 hover:text-forest-600 transition-colors" title="养护计划">
+                        <CalendarClock size={14} />
+                      </Link>
                     </div>
 
                     <div className="text-center mb-4">
@@ -577,7 +583,12 @@ export function PlantCompare() {
                   <div key={data.plant.id} className={`card p-4 animate-fade-in-up opacity-0`} style={{ animationDelay: `${i * 0.08}s` }}>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color.main }} />
-                      <p className="font-bold text-forest-900 font-serif text-sm truncate">{data.plant.name}</p>
+                      <Link to={`/plants/${data.plant.id}`} className="font-bold text-forest-900 font-serif text-sm truncate hover:underline">{data.plant.name}</Link>
+                      {data.activePestCount > 0 && (
+                        <Link to="/pests" className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors ml-auto" title="查看病虫害">
+                          <ExternalLink size={12} />
+                        </Link>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 mb-3">
@@ -625,9 +636,15 @@ export function PlantCompare() {
 
           {suggestions.length > 0 && (
             <div className="card p-5 border-amber-200 bg-gradient-to-r from-amber-50/50 to-cream-50 animate-fade-in-up opacity-0 stagger-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles size={18} className="text-amber-600" />
-                <h3 className="font-bold text-forest-900 font-serif">养护策略建议</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-amber-600" />
+                  <h3 className="font-bold text-forest-900 font-serif">养护策略建议</h3>
+                </div>
+                <Link to="/care-plans" className="btn-secondary text-xs py-1.5">
+                  <CalendarClock size={14} />
+                  前往养护计划
+                </Link>
               </div>
               <div className="space-y-3">
                 {suggestions.map((suggestion, i) => (
