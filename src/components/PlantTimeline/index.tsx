@@ -54,6 +54,7 @@ interface PlantTimelineProps {
   careLogs: CareLog[];
   leafRecords: LeafRecord[];
   pestRecords: PestRecord[];
+  highlightRecordId?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -219,6 +220,7 @@ export function PlantTimeline({
   careLogs,
   leafRecords,
   pestRecords,
+  highlightRecordId,
 }: PlantTimelineProps) {
   const [filterType, setFilterType] = useState<TimelineFilterType>("all");
   const [timeRange, setTimeRange] = useState<TimelineTimeRange>("all");
@@ -266,6 +268,45 @@ export function PlantTimeline({
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [filterType, timeRange, careSubFilter]);
+
+  useEffect(() => {
+    if (!highlightRecordId) return;
+
+    const target = allGroupedRecords.find((r) => r.id === highlightRecordId);
+    if (!target) return;
+
+    if (target.kind === "care") {
+      setFilterType("care");
+      setCareSubFilter("all");
+    } else if (target.kind === "leaf") {
+      setFilterType("leaf");
+    } else if (target.kind === "pest") {
+      setFilterType("pest");
+    }
+    setTimeRange("all");
+
+    const idx = allGroupedRecords.findIndex((r) => r.id === highlightRecordId);
+    if (idx >= 0) {
+      setVisibleCount(Math.max(PAGE_SIZE, idx + 5));
+    }
+
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.add(highlightRecordId);
+      return next;
+    });
+
+    setTimeout(() => {
+      const el = document.getElementById(`timeline-item-${highlightRecordId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("timeline-highlight");
+        setTimeout(() => {
+          el.classList.remove("timeline-highlight");
+        }, 2500);
+      }
+    }, 300);
+  }, [highlightRecordId, allGroupedRecords]);
 
   useEffect(() => {
     if (layout === "horizontal" && horizontalScrollRef.current) {
@@ -744,6 +785,7 @@ interface TimelineItemProps {
   onToggle: () => void;
   onDelete: () => void;
   plantId: string;
+  isHighlighted?: boolean;
 }
 
 function TimelineItem({
@@ -753,6 +795,7 @@ function TimelineItem({
   onToggle,
   onDelete,
   plantId,
+  isHighlighted,
 }: TimelineItemProps) {
   const colors = TIMELINE_KIND_COLORS[item.kind];
   const { emoji } = getIcon(item.kind, item.record);
@@ -768,7 +811,10 @@ function TimelineItem({
   };
 
   return (
-    <div className={`relative pl-10 md:pl-16 ${isLastInDay ? "" : "pb-4"} group/item`}>
+    <div
+      id={`timeline-item-${item.id}`}
+      className={`relative pl-10 md:pl-16 ${isLastInDay ? "" : "pb-4"} group/item`}
+    >
       <div
         className={`absolute left-0 md:left-[14px] top-1.5 w-10 h-10 md:w-9 md:h-9 rounded-full ${colors.bg} ${colors.border} border-2 flex items-center justify-center text-base shadow-sm z-10 transition-transform group-hover/item:scale-110`}
       >
@@ -1358,7 +1404,10 @@ function HorizontalTimelineCard({
   };
 
   return (
-    <div className="shrink-0 w-[240px] sm:w-[260px] relative group/card">
+    <div
+      id={`timeline-item-${item.id}`}
+      className="shrink-0 w-[240px] sm:w-[260px] relative group/card"
+    >
       <div className="absolute top-12 left-0 right-0 h-[2px] bg-forest-100 -z-0" />
       {isFirst && (
         <div className="absolute top-12 right-1/2 left-0 h-[2px] bg-gradient-to-r from-transparent to-forest-100 -z-0" />

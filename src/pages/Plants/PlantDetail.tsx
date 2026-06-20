@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Edit2,
@@ -45,6 +45,8 @@ import { HealthRating } from "@/components/HealthRating";
 
 export function PlantDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const highlightRecordId = searchParams.get("record") || undefined;
   const plants = useAppStore((s) => s.plants);
   const allCareLogs = useAppStore((s) => s.careLogs);
   const allLeafRecords = useAppStore((s) => s.leafRecords);
@@ -802,6 +804,7 @@ export function PlantDetail() {
         careLogs={careLogs}
         leafRecords={leafRecords}
         pestRecords={pestRecords}
+        highlightRecordId={highlightRecordId}
       />
     </div>
   );

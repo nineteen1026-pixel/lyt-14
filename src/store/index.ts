@@ -901,7 +901,7 @@ export const useAppStore = create<AppState>()(
               plantName: plant.name,
               plantAvatar: plant.avatar,
               date: log.date,
-              navigateTo: `/plants/${plant.id}`,
+              navigateTo: `/plants/${plant.id}?record=care-${log.id}`,
             });
           }
         });
@@ -946,7 +946,7 @@ export const useAppStore = create<AppState>()(
               plantName: plant.name,
               plantAvatar: plant.avatar,
               date: record.date,
-              navigateTo: `/plants/${plant.id}`,
+              navigateTo: `/plants/${plant.id}?record=leaf-${record.id}`,
             });
           }
         });
@@ -976,7 +976,7 @@ export const useAppStore = create<AppState>()(
               plantName: plant.name,
               plantAvatar: plant.avatar,
               date: record.discoveredDate,
-              navigateTo: `/plants/${plant.id}`,
+              navigateTo: `/plants/${plant.id}?record=pest-${record.id}`,
             });
           }
         });
