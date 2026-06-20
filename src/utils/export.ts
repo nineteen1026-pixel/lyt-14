@@ -8,6 +8,7 @@ import type {
   ExpenseRecord,
   ExpenseCategory,
   PlantYearlyExpense,
+  CategoryExpenseSummary,
 } from "@/types";
 
 export interface ExportData {
@@ -309,6 +310,7 @@ export const yearlyExpensesToCSV = (
     other: "其他",
   };
 
+  const titleRow = [`${year}年度植物费用报表`, "", "", "", "", "", "", "", "", ""];
   const headers = [
     "植物",
     "总支出(元)",
@@ -324,7 +326,7 @@ export const yearlyExpensesToCSV = (
   const rows = yearlyExpenses.map((p) => [
     p.plantName,
     p.totalAmount.toFixed(2),
-    p.recordCount,
+    String(p.recordCount),
     p.categoryBreakdown.repotting.toFixed(2),
     p.categoryBreakdown.fertilizer.toFixed(2),
     p.categoryBreakdown.pest_control.toFixed(2),
@@ -339,7 +341,7 @@ export const yearlyExpensesToCSV = (
     yearlyExpenses
       .reduce((sum, p) => sum + p.totalAmount, 0)
       .toFixed(2),
-    yearlyExpenses.reduce((sum, p) => sum + p.recordCount, 0),
+    String(yearlyExpenses.reduce((sum, p) => sum + p.recordCount, 0)),
     yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.repotting, 0).toFixed(2),
     yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.fertilizer, 0).toFixed(2),
     yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.pest_control, 0).toFixed(2),
@@ -349,5 +351,43 @@ export const yearlyExpensesToCSV = (
     yearlyExpenses.reduce((sum, p) => sum + p.categoryBreakdown.other, 0).toFixed(2),
   ];
 
-  return [`${year}年度植物费用报表`, "", ...[headers, ...rows, totalRow].map((r) => r.join(","))].join("\n");
+  return [titleRow, headers, ...rows, totalRow].map((r) => r.join(",")).join("\n");
+};
+
+export const categoryExpensesToCSV = (
+  categorySummary: CategoryExpenseSummary[],
+  year: number
+): string => {
+  const categoryLabels: Record<ExpenseCategory, string> = {
+    repotting: "换盆",
+    fertilizer: "肥料",
+    pest_control: "病虫害防治",
+    tools: "工具",
+    soil: "土壤",
+    pot: "花盆",
+    other: "其他",
+  };
+
+  const titleRow = [`${year}年度分类费用汇总报表`, "", "", ""];
+  const headers = [
+    "类别",
+    "金额(元)",
+    "记录数",
+    "占比(%)",
+  ];
+  const rows = categorySummary.map((c) => [
+    categoryLabels[c.category],
+    c.totalAmount.toFixed(2),
+    String(c.recordCount),
+    c.percentage.toFixed(2),
+  ]);
+
+  const totalRow = [
+    "合计",
+    categorySummary.reduce((sum, c) => sum + c.totalAmount, 0).toFixed(2),
+    String(categorySummary.reduce((sum, c) => sum + c.recordCount, 0)),
+    "100.00",
+  ];
+
+  return [titleRow, headers, ...rows, totalRow].map((r) => r.join(",")).join("\n");
 };

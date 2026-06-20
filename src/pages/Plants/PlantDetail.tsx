@@ -14,6 +14,7 @@ import {
   Thermometer,
   Sun,
   GitCompareArrows,
+  Wallet,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { formatDate } from "@/utils/format";
@@ -27,6 +28,9 @@ import {
   HEALTH_LEVEL_LABELS,
   HEALTH_LEVEL_COLORS,
   ENVIRONMENT_FIELD_UNITS,
+  EXPENSE_CATEGORY_LABELS,
+  EXPENSE_CATEGORY_ICONS,
+  EXPENSE_CATEGORY_COLORS,
 } from "@/types";
 import {
   ResponsiveContainer,
@@ -53,9 +57,38 @@ export function PlantDetail() {
   const allLeafRecords = useAppStore((s) => s.leafRecords);
   const allPestRecords = useAppStore((s) => s.pestRecords);
   const allEnvironmentRecords = useAppStore((s) => s.environmentRecords);
+  const allExpenseRecords = useAppStore((s) => s.expenseRecords);
   const deletePlant = useAppStore((s) => s.deletePlant);
 
   const plant = plants.find((p) => p.id === id);
+  const currentYear = new Date().getFullYear();
+
+  const expenseRecords = useMemo(
+    () =>
+      allExpenseRecords
+        .filter((r) => r.plantId === id)
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [allExpenseRecords, id]
+  );
+
+  const yearlyExpense = useMemo(() => {
+    const yearStr = String(currentYear);
+    const thisYearRecords = expenseRecords.filter((r) => r.date.startsWith(yearStr));
+    const categories = ["repotting", "fertilizer", "pest_control", "tools", "soil", "pot", "other"] as const;
+    const breakdown: Record<string, number> = {};
+    categories.forEach((c) => (breakdown[c] = 0));
+    let total = 0;
+    thisYearRecords.forEach((r) => {
+      total += r.amount;
+      breakdown[r.category] += r.amount;
+    });
+    return {
+      year: currentYear,
+      totalAmount: Math.round(total * 100) / 100,
+      recordCount: thisYearRecords.length,
+      categoryBreakdown: breakdown as Record<(typeof categories)[number], number>,
+    };
+  }, [expenseRecords, currentYear]);
   const careLogs = useMemo(
     () =>
       allCareLogs
@@ -273,6 +306,11 @@ export function PlantDetail() {
               <Bug size={16} className="text-forest-500" />
               病虫害 {pestRecords.length} 条
             </div>
+            <div className="flex items-center gap-2 text-forest-600">
+              <Wallet size={16} className="text-forest-500" />
+              {yearlyExpense.year}年支出 ¥{yearlyExpense.totalAmount.toFixed(2)}
+              （{yearlyExpense.recordCount}笔）
+            </div>
           </div>
           {plant.notes && (
             <div className="mt-4 p-4 bg-cream-50 rounded-xl border border-cream-200">
@@ -305,6 +343,13 @@ export function PlantDetail() {
             记录病虫害
           </Link>
           <Link
+            to={{ pathname: "/expenses/new", search: `?plantId=${plant.id}` }}
+            className="btn-secondary w-full justify-center"
+          >
+            <Wallet size={16} />
+            记费用
+          </Link>
+          <Link
             to={{
               pathname: "/environment/new",
               search: plant.location ? `?location=${encodeURIComponent(plant.location)}` : "",
@@ -315,6 +360,83 @@ export function PlantDetail() {
             记录环境
           </Link>
         </div>
+      </div>
+
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-forest-900 font-serif flex items-center gap-2">
+            <Wallet size={18} className="text-purple-500" />
+            {yearlyExpense.year}年度开支汇总
+          </h3>
+          <Link
+            to={{ pathname: "/expenses/new", search: `?plantId=${plant.id}` }}
+            className="btn-secondary text-sm py-1.5"
+          >
+            <Plus size={14} />
+            记费用
+          </Link>
+        </div>
+        <div className="mb-4 p-4 rounded-xl bg-gradient-to-r from-purple-50 to-rose-50 border border-purple-100 text-center">
+          <p className="text-sm text-forest-500">全年总支出</p>
+          <p className="text-3xl font-bold text-rose-600 font-serif mt-1">
+            ¥{yearlyExpense.totalAmount.toFixed(2)}
+          </p>
+          <p className="text-xs text-forest-400 mt-1">
+            共 {yearlyExpense.recordCount} 笔记录
+          </p>
+        </div>
+        {yearlyExpense.recordCount > 0 ? (
+          <div className="space-y-2">
+            {Object.entries(yearlyExpense.categoryBreakdown)
+              .filter(([_, amount]) => amount > 0)
+              .sort((a, b) => b[1] - a[1])
+              .map(([cat, amount], i) => {
+                const category = cat as keyof typeof EXPENSE_CATEGORY_LABELS;
+                const colors = EXPENSE_CATEGORY_COLORS[category];
+                const percentage = yearlyExpense.totalAmount > 0
+                  ? Math.round((amount / yearlyExpense.totalAmount) * 10000) / 100
+                  : 0;
+                return (
+                  <div
+                    key={cat}
+                    className={`p-3 rounded-xl ${colors.bg} ${colors.border} border animate-fade-in-up opacity-0 stagger-${Math.min(i + 1, 6)}`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">
+                          {EXPENSE_CATEGORY_ICONS[category]}
+                        </span>
+                        <span className={`text-sm font-medium ${colors.text}`}>
+                          {EXPENSE_CATEGORY_LABELS[category]}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-bold text-forest-800">
+                          ¥{amount.toFixed(2)}
+                        </span>
+                        <span className="text-xs text-forest-500 ml-2">
+                          {percentage}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: colors.chart,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-forest-400 text-sm">
+            今年还没有费用记录，点击右上角"记费用"开始记录吧
+          </div>
+        )}
       </div>
 
       <div className="card p-5">

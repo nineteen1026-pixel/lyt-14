@@ -24,6 +24,7 @@ import {
   environmentRecordsToCSV,
   expenseRecordsToCSV,
   yearlyExpensesToCSV,
+  categoryExpensesToCSV,
 } from "@/utils/export";
 import {
   EXPENSE_CATEGORY_LABELS,
@@ -157,6 +158,13 @@ export function DataCenter() {
     downloadCSV(
       yearlyExpensesToCSV(yearlyExpenses, selectedYear),
       `yearly-expenses-${selectedYear}-${formatDateTime(new Date()).replace(/[: ]/g, "-")}.csv`
+    );
+  };
+
+  const handleExportCategoryExpenseCSV = () => {
+    downloadCSV(
+      categoryExpensesToCSV(categorySummary, selectedYear),
+      `category-expenses-${selectedYear}-${formatDateTime(new Date()).replace(/[: ]/g, "-")}.csv`
     );
   };
 
@@ -385,12 +393,12 @@ export function DataCenter() {
               )}
             </select>
             <button
-              onClick={handleExportYearlyExpenseCSV}
+              onClick={handleExportCategoryExpenseCSV}
               disabled={totalExpense === 0}
               className="btn-secondary text-sm py-2"
             >
               <Download size={14} />
-              导出报表
+              导出分类报表
             </button>
           </div>
         </div>
@@ -478,16 +486,26 @@ export function DataCenter() {
       </div>
 
       <div className="card p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-            <TrendingUp className="text-emerald-600" size={20} />
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <TrendingUp className="text-emerald-600" size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-forest-900 font-serif">年度开支排行</h3>
+              <p className="text-sm text-forest-500">
+                {selectedYear}年每株植物开支统计
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-forest-900 font-serif">年度开支排行</h3>
-            <p className="text-sm text-forest-500">
-              {selectedYear}年每株植物开支统计
-            </p>
-          </div>
+          <button
+            onClick={handleExportYearlyExpenseCSV}
+            disabled={yearlyExpenses.every((p) => p.recordCount === 0)}
+            className="btn-secondary text-sm py-2"
+          >
+            <Download size={14} />
+            导出植物报表
+          </button>
         </div>
 
         {yearlyExpenses.filter((p) => p.recordCount > 0).length > 0 ? (

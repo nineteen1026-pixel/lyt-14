@@ -549,6 +549,7 @@ export const useAppStore = create<AppState>()(
           careLogs: state.careLogs.filter((l) => l.plantId !== id),
           leafRecords: state.leafRecords.filter((l) => l.plantId !== id),
           pestRecords: state.pestRecords.filter((p) => p.plantId !== id),
+          expenseRecords: state.expenseRecords.filter((r) => r.plantId !== id),
         })),
 
       getPlantById: (id) => get().plants.find((p) => p.id === id),
