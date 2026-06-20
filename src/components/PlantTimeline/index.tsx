@@ -230,6 +230,8 @@ export function PlantTimeline({
   const [careSubFilter, setCareSubFilter] = useState<string>("all");
   const [layout, setLayout] = useState<TimelineLayout>("vertical");
   const horizontalScrollRef = useRef<HTMLDivElement>(null);
+  const isHighlightingRef = useRef(false);
+  const scrollAttemptsRef = useRef(0);
 
   const deleteCareLog = useAppStore((s) => s.deleteCareLog);
   const deleteLeafRecord = useAppStore((s) => s.deleteLeafRecord);
@@ -266,46 +268,78 @@ export function PlantTimeline({
   const hasMore = visibleCount < filteredRecords.length;
 
   useEffect(() => {
+    if (isHighlightingRef.current) return;
     setVisibleCount(PAGE_SIZE);
   }, [filterType, timeRange, careSubFilter]);
 
   useEffect(() => {
     if (!highlightRecordId) return;
 
-    const target = allGroupedRecords.find((r) => r.id === highlightRecordId);
+    const targetId = highlightRecordId;
+    const target = allGroupedRecords.find((r) => r.id === targetId);
     if (!target) return;
 
-    if (target.kind === "care") {
-      setFilterType("care");
-      setCareSubFilter("all");
-    } else if (target.kind === "leaf") {
-      setFilterType("leaf");
-    } else if (target.kind === "pest") {
-      setFilterType("pest");
-    }
-    setTimeRange("all");
-
-    const idx = allGroupedRecords.findIndex((r) => r.id === highlightRecordId);
-    if (idx >= 0) {
-      setVisibleCount(Math.max(PAGE_SIZE, idx + 5));
-    }
+    isHighlightingRef.current = true;
+    scrollAttemptsRef.current = 0;
 
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      next.add(highlightRecordId);
+      next.add(targetId);
       return next;
     });
 
-    setTimeout(() => {
-      const el = document.getElementById(`timeline-item-${highlightRecordId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("timeline-highlight");
-        setTimeout(() => {
-          el.classList.remove("timeline-highlight");
-        }, 2500);
+    let nextFilterType: TimelineFilterType = "all";
+    if (target.kind === "care") nextFilterType = "care";
+    else if (target.kind === "leaf") nextFilterType = "leaf";
+    else if (target.kind === "pest") nextFilterType = "pest";
+
+    setFilterType(nextFilterType);
+    setCareSubFilter("all");
+    setTimeRange("all");
+
+    const getFilteredRecords = () => {
+      let result = [...allGroupedRecords];
+      result = filterByTimeRange(result, "all");
+      if (nextFilterType !== "all") {
+        result = result.filter((r) => r.kind === nextFilterType);
       }
-    }, 300);
+      return result;
+    };
+
+    const tryLocate = () => {
+      const filtered = getFilteredRecords();
+      const idx = filtered.findIndex((r) => r.id === targetId);
+
+      if (idx >= 0) {
+        const targetVisible = Math.max(PAGE_SIZE, idx + 5);
+        setVisibleCount((prev) => Math.max(prev, targetVisible));
+      }
+
+      const attemptScroll = () => {
+        const el = document.getElementById(`timeline-item-${targetId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("timeline-highlight");
+          setTimeout(() => el.classList.remove("timeline-highlight"), 2500);
+          isHighlightingRef.current = false;
+          scrollAttemptsRef.current = 0;
+          return true;
+        }
+        if (scrollAttemptsRef.current < 15) {
+          scrollAttemptsRef.current += 1;
+          setVisibleCount((prev) => prev + PAGE_SIZE);
+          setTimeout(attemptScroll, 150);
+        } else {
+          isHighlightingRef.current = false;
+          scrollAttemptsRef.current = 0;
+        }
+        return false;
+      };
+
+      setTimeout(attemptScroll, 100);
+    };
+
+    setTimeout(tryLocate, 50);
   }, [highlightRecordId, allGroupedRecords]);
 
   useEffect(() => {
